@@ -36,7 +36,7 @@ jobs:
         run: arduino-cli config init
 
       - name: Add board manager URLs
-        run: arduino-cli config set board_manager.additional_urls "https://espressif.github.io/arduino-esp32/package_esp32_index.json,https://github.com/stm32duino/BoardManagerFiles/raw/main/package_stmicroelectronics_index.json,https://adafruit.github.io/arduino-board-index/package_adafruit_index.json"
+        run: arduino-cli config set board_manager.additional_urls "https://espressif.github.io/arduino-esp32/package_esp32_index.json,https://github.com/stm32duino/BoardManagerFiles/raw/main/package_stmicroelectronics_index.json,https://raw.githubusercontent.com/adafruit/arduino-board-index/gh-pages/package_adafruit_index.json"
 
       - name: Update core index
         run: arduino-cli core update-index
