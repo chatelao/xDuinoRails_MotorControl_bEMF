@@ -12,6 +12,7 @@ jobs:
   build_and_test:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         board:
           - fqbn: 'esp32:esp32:esp32'
