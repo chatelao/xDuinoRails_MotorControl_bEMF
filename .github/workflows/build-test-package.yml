@@ -1,0 +1,61 @@
+name: Build, Test and Package
+
+on:
+  push:
+    branches:
+      - '**'
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  build_and_test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        platform:
+          - 'esp32:esp32:esp32'
+          - 'nordic:nrf52:nrf52833'
+          - 'arduino:mbed_rp2040:pico'
+          - 'arduino:samd:mkr1000'
+          - 'STMicroelectronics:stm32:GenF1'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Arduino CLI
+        uses: arduino/setup-arduino-cli@v1
+
+      - name: Install platform
+        run: |
+          arduino-cli core install ${{ matrix.platform }}
+
+      - name: Compile
+        run: |
+          arduino-cli compile --fqbn ${{ matrix.platform }} --warnings all .
+
+  package:
+    needs: build_and_test
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: 'Get release version'
+        id: get_version
+        uses: battila7/get-version-action@v2
+
+      - name: 'Create archive'
+        run: |
+          zip -r xDuinoRails_MotorControl_bEMF-${{ steps.get_version.outputs.version-without-v }}.zip . -x ".git/*" ".github/*"
+
+      - name: 'Upload release asset'
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: ./xDuinoRails_MotorControl_bEMF-${{ steps.get_version.outputs.version-without-v }}.zip
+          asset_name: xDuinoRails_MotorControl_bEMF-${{ steps.get_version.outputs.version-without-v }}.zip
+          asset_content_type: application/zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
