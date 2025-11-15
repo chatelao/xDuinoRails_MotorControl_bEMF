@@ -21,7 +21,7 @@
  */
 
 #include <Arduino.h>
-#include <XDuinoRails_MotorDriver.h>
+#include "motor_control_hal.h"
 #include <RotaryEncoder.h>
 
 // --- Pin Definitions ---
@@ -36,19 +36,25 @@ const int ENCODER_PIN_A = 0;      // CLK pin
 const int ENCODER_PIN_B = 1;      // DT pin
 const int ENCODER_SWITCH_PIN = 9; // SW pin
 
-// --- Motor and Encoder Instances ---
-// Create an instance of the motor driver.
-XDuinoRails_MotorDriver motor(MOTOR_PWM_A_PIN, MOTOR_PWM_B_PIN, MOTOR_BEMF_A_PIN, MOTOR_BEMF_B_PIN);
+// --- BEMF Callback ---
+// This function is called from an interrupt whenever a new BEMF value is available.
+void on_bemf_update(int raw_bemf) {
+  // For this simple example, we'll just print the raw value.
+  // In a real application, you would filter and process this data.
+  Serial.print("Raw BEMF: ");
+  Serial.println(raw_bemf);
+}
 
-// Create an instance of the rotary encoder using polling.
-// For higher responsiveness, you could use interrupts. See the library's documentation.
+// --- Encoder Instance ---
+// Create an instance of the rotary encoder.
 RotaryEncoder encoder(ENCODER_PIN_A, ENCODER_PIN_B);
 
 // --- Control Logic Parameters ---
 const long ENCODER_MIN_POSITION = 0;
 const long ENCODER_MAX_POSITION = 24; // Assumes a standard 24-detent encoder for one full turn.
-const int MAX_SPEED_PPS = 200;        // The motor speed (in Pulses Per Second) at 100% encoder turn.
+const int MAX_PWM_DUTY_CYCLE = 255;   // The PWM duty cycle at 100% encoder turn.
 bool motorDirection = true;           // Current motor direction: true for forward, false for reverse.
+int current_speed = 0;                // Current motor speed
 
 // --- Button Debouncing ---
 // Variables to handle button debouncing to prevent multiple triggers from a single press.
@@ -61,12 +67,11 @@ void setup() {
   while (!Serial) {
     ; // Wait for the serial port to connect. Needed for native USB port only.
   }
-  Serial.println("Rotary Encoder Motor Control Example");
+  Serial.println("Rotary Encoder Motor Control with HAL Example");
   Serial.println("Turn the knob to change speed, press it to stop or change direction.");
 
-  // Initialize the motor driver.
-  motor.begin();
-  motor.setDirection(motorDirection);
+  // Initialize the motor hardware abstraction layer.
+  hal_motor_init(MOTOR_PWM_A_PIN, MOTOR_PWM_B_PIN, MOTOR_BEMF_A_PIN, MOTOR_BEMF_B_PIN, on_bemf_update);
 
   // Set up the encoder's switch pin with an internal pull-up resistor.
   // This means the pin will be HIGH by default and LOW when the button is pressed.
@@ -77,9 +82,8 @@ void setup() {
 }
 
 void loop() {
-  // These two functions must be called in every loop iteration for the components to work.
-  motor.update();   // Handles the motor's PI controller and BEMF measurement.
-  encoder.tick();   // Polls the encoder for any new movement.
+  // Poll the encoder for any new movement.
+  encoder.tick();
 
   // --- Encoder Logic for Speed Control ---
   long newPosition = encoder.getPosition();
@@ -93,38 +97,31 @@ void loop() {
     encoder.setPosition(newPosition);
   }
 
-  // Map the constrained encoder position (e.g., 0-24) to the desired motor speed range (e.g., 0-200 PPS).
-  int newSpeed = map(newPosition, ENCODER_MIN_POSITION, ENCODER_MAX_POSITION, 0, MAX_SPEED_PPS);
-  if (newSpeed != motor.getTargetSpeed()) {
-    motor.setTargetSpeed(newSpeed);
-    Serial.print("New Speed: ");
+  // Map the constrained encoder position to the PWM duty cycle.
+  int newSpeed = map(newPosition, ENCODER_MIN_POSITION, ENCODER_MAX_POSITION, 0, MAX_PWM_DUTY_CYCLE);
+  if (newSpeed != current_speed) {
+    hal_motor_set_pwm(newSpeed, motorDirection);
+    current_speed = newSpeed;
+    Serial.print("New Speed (PWM): ");
     Serial.println(newSpeed);
   }
 
   // --- Button Logic for Stop/Direction Control ---
   // Check if the button is pressed (pin is LOW) and if enough time has passed since the last press.
   if (digitalRead(ENCODER_SWITCH_PIN) == LOW && (millis() - lastButtonPressTime) > DEBOUNCE_DELAY) {
-    if (motor.getTargetSpeed() > 0) {
+    if (current_speed > 0) {
       // If the motor is currently moving, stop it and reset the encoder position.
-      motor.setTargetSpeed(0);
+      hal_motor_set_pwm(0, motorDirection);
+      current_speed = 0;
       encoder.setPosition(ENCODER_MIN_POSITION);
       Serial.println("Motor stopped.");
     } else {
       // If the motor is stopped, toggle the direction for the next run.
       motorDirection = !motorDirection;
-      motor.setDirection(motorDirection);
       Serial.print("Direction changed to: ");
       Serial.println(motorDirection ? "Forward" : "Reverse");
     }
     // Record the time of this press to handle debouncing.
     lastButtonPressTime = millis();
-  }
-  // --- BEMF Reading ---
-  // Print the measured speed from BEMF to the serial port every 100ms.
-  static unsigned long lastBEMFPrintTime = 0;
-  if (millis() - lastBEMFPrintTime > 100) {
-    Serial.print("BEMF Speed (PPS): ");
-    Serial.println(motor.getMeasuredSpeedPPS());
-    lastBEMFPrintTime = millis();
   }
 }
