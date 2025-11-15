@@ -1,0 +1,48 @@
+name: build
+
+on:
+  push:
+    branches:
+      - "**"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        platform:
+          # ESP32
+          - identifier: "esp32:esp32"
+            fqbn: "esp32:esp32:esp32"
+          # nRF52833
+          - identifier: "adafruit:nrf52"
+            fqbn: "adafruit:nrf52:nano33ble"
+          # RP2040
+          - identifier: "arduino:mbed_rp2040"
+            fqbn: "arduino:mbed_rp2040:nano_rp2040_connect"
+          # SAMD21
+          - identifier: "arduino:samd"
+            fqbn: "arduino:samd:mkr1000"
+          # STM32
+          - identifier: "STMicroelectronics:stm32"
+            fqbn: "STMicroelectronics:stm32:Nucleo_F103RB"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup Arduino CLI
+        uses: arduino/setup-arduino-cli@v2
+
+      - name: Configure Arduino CLI
+        run: |
+          arduino-cli config init
+          arduino-cli config set board_manager.additional_urls "https://adafruit.github.io/arduino-board-index/package_adafruit_index.json,https://files.espressif.com/dl/package_esp32_index.json,https://raw.githubusercontent.com/stm32duino/BoardManagerFiles/main/package_stmicroelectronics_index.json"
+          arduino-cli core update-index
+
+      - name: Install platform
+        run: arduino-cli core install ${{ matrix.platform.identifier }}
+
+      - name: Compile library
+        run: arduino-cli compile --fqbn ${{ matrix.platform.fqbn }} --library .
