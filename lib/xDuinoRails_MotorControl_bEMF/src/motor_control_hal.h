@@ -52,4 +52,27 @@ void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, ui
  */
 void hal_motor_set_pwm(int duty_cycle, bool forward);
 
+/**
+ * @brief Retrieves the BEMF ring buffer for diagnostics.
+ *
+ * This function provides low-level access to the raw ADC sample buffer.
+ * It is intended for debugging and visualization, not for real-time control.
+ * The buffer contains interleaved samples from ADC A and ADC B.
+ *
+ * @param[out] buffer A pointer to a uint16_t pointer that will be set to the
+ *                    address of the internal ring buffer.
+ * @return The total size of the ring buffer (number of samples).
+ */
+int hal_motor_get_bemf_buffer(volatile uint16_t** buffer);
+
+/**
+ * @brief Retrieves the DMA's current write position in the BEMF ring buffer.
+ *
+ * This function provides the index of the last sample written by the DMA.
+ * It is useful for synchronizing data analysis with the DMA's progress.
+ *
+ * @return The current write position (index) in the ring buffer.
+ */
+int hal_motor_get_bemf_dma_position();
+
 #endif // MOTOR_CONTROL_HAL_H

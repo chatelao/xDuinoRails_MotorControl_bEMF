@@ -152,4 +152,13 @@ void hal_motor_set_pwm(int duty_cycle, bool forward) {
     }
 }
 
+int hal_motor_get_bemf_buffer(volatile uint16_t** buffer) {
+    *buffer = bemf_ring_buffer;
+    return BEMF_RING_BUFFER_SIZE;
+}
+
+int hal_motor_get_bemf_dma_position() {
+    return BEMF_RING_BUFFER_SIZE - dma_channel_get_trans_count(dma_channel);
+}
+
 #endif // USE_RP2040_LOWLEVEL && ARDUINO_ARCH_RP2040
