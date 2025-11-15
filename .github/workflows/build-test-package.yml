@@ -45,7 +45,7 @@ jobs:
         run: arduino-cli core install ${{ matrix.board.platform }}
 
       - name: Compile
-        run: arduino-cli compile --fqbn ${{ matrix.board.fqbn }} --warnings all examples/compile_test
+        run: arduino-cli compile --fqbn ${{ matrix.board.fqbn }} --warnings all --libraries . examples/compile_test
 
   package:
     needs: build_and_test
