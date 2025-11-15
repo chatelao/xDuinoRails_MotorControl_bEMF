@@ -10,8 +10,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
+    strategy:
+      matrix:
+        platform: [seeed_xiao_rp2040, esp32_s2_saola, esp32_s3_devkit, seeed_xiao_esp32c3, nucleo_f446re]
 
     steps:
       - name: Checkout repository
@@ -28,15 +29,39 @@ jobs:
           pip install --upgrade platformio
           pip install -r scripts/requirements.txt
 
-      - name: Build and Prepare Release Assets
+      - name: Build Firmware
+        run: pio run -e ${{ matrix.platform }}
+
+      - name: Rename Firmware
         run: |
-          # Build default environment
-          pio run -e seeed_xiao_rp2040
-          mv .pio/build/seeed_xiao_rp2040/firmware.uf2 demo.uf2
+          if [ "${{ matrix.platform }}" == "seeed_xiao_rp2040" ]; then
+            mv .pio/build/${{ matrix.platform }}/firmware.uf2 ${{ matrix.platform }}.uf2
+          else
+            mv .pio/build/${{ matrix.platform }}/firmware.bin ${{ matrix.platform }}.bin
+          fi
+
+      - name: Upload firmware as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.platform }}-firmware
+          path: |
+            ${{ matrix.platform }}.*
+
+  release:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release'
+    needs: build
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all firmware artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: firmware
 
       - name: Upload Release Assets
-        if: github.event_name == 'release'
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            demo.uf2
+            firmware/*/*
