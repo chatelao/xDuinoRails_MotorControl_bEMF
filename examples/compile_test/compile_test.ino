@@ -21,6 +21,9 @@ void setup() {
 }
 
 void loop() {
+  // Read and process BEMF data
+  hal_read_and_process_bemf();
+
   // Set the motor to full speed forward
   hal_motor_set_pwm(255, true);
   delay(1000);
