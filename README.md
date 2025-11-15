@@ -85,7 +85,7 @@ void loop() {
 
 ## How it Works (ESP32)
 
-The ESP32 implementation of `xDuinoRails_MotorControl` leverages the advanced peripherals of the microcontroller to achieve high-performance motor control with minimal CPU intervention. Here's a high-level overview of how it works:
+The ESP32 implementation of `xDuinoRails_MotorControl` leverages the advanced peripherals of the microcontroller to achieve high-performance motor control with minimal CPU intervention. For a deep dive into the ESP32's peripherals, refer to the [ESP32 Technical Reference Manual](https://www.espressif.com/sites/default/files/documentation/esp32_technical_reference_manual_en.pdf). Here's a high-level overview of how it works:
 
 1. **MCPWM (Motor Control PWM):** The MCPWM peripheral generates the PWM signals for the motor driver, offloading the CPU from this task.
 
@@ -94,3 +94,53 @@ The ESP32 implementation of `xDuinoRails_MotorControl` leverages the advanced pe
 3. **GPTimer (General Purpose Timer):** A high-precision GPTimer is used to create a short delay between the PWM pulse and the BEMF measurement, ensuring a clean and accurate reading.
 
 4. **ETM (Event Task Matrix):** The ETM connects the MCPWM, GPTimer, and ADC peripherals, creating a chain of events and tasks that run without any CPU intervention. This allows for a fully automated motor control and BEMF measurement process.
+
+## How it Works (nRF52833)
+
+The nRF52833 implementation relies on its powerful and flexible peripheral system to achieve efficient motor control. For a detailed description of the nRF52833's peripherals, see the [nRF52833 Product Specification](https://infocenter.nordicsemi.com/pdf/nRF52833_PS_v1.0.pdf).
+
+1. **PWM (Pulse Width Modulator):** The PWM peripheral generates the motor control signals. It features EasyDMA, allowing for complex PWM sequences without CPU intervention.
+
+2. **ADC (Analog-to-Digital Converter):** The 12-bit ADC is used to measure the BEMF from the motor windings.
+
+3. **Timer:** A 32-bit timer is used to create a precise delay between the PWM signal and the ADC measurement, ensuring an accurate BEMF reading.
+
+4. **PPI (Programmable Peripheral Interconnect):** The PPI is the key to automating the process. It is used to connect the timer and ADC peripherals, triggering the ADC sampling at the precise moment required after the PWM pulse, all without CPU involvement.
+
+## How it Works (RP2040)
+
+The RP2040 implementation takes advantage of its unique PIO (Programmable I/O) subsystem to create a flexible and efficient motor control solution. The [RP2040 Datasheet](https://datasheets.raspberrypi.com/rp2040/rp2040-datasheet.pdf) provides a comprehensive overview of the microcontroller's peripherals.
+
+1. **PWM (Pulse Width Modulator):** The RP2040 has dedicated PWM blocks that are used to generate the motor control signals.
+
+2. **ADC (Analog-to-Digital Converter):** The ADC is used to measure the BEMF from the motor.
+
+3. **PIO (Programmable I/O):** The PIO is a powerful and flexible peripheral that can be programmed to create custom logic. In this library, it's used to create a state machine that precisely times the ADC sampling after a PWM pulse.
+
+4. **DMA (Direct Memory Access):** DMA is used to transfer the ADC results to memory without CPU intervention, minimizing the CPU load.
+
+## How it Works (SAMD21)
+
+The SAMD21 implementation uses a combination of its powerful peripherals to create an efficient and autonomous motor control system. The [SAM D21 Family Datasheet](http://ww1.microchip.com/downloads/en/DeviceDoc/SAM-D21-DA1-Family-Data-Sheet-DS40001882G.pdf) provides a complete overview of the device's capabilities.
+
+1. **TCC (Timer/Counter for Control Applications):** The TCC peripheral is a highly configurable timer/counter that's used to generate the PWM signals for the motor driver.
+
+2. **ADC (Analog-to-Digital Converter):** The ADC measures the BEMF from the motor windings.
+
+3. **TC (Timer/Counter):** A separate Timer/Counter is used to create a precise delay between the PWM pulse and the ADC measurement.
+
+4. **Event System:** The SAMD21's Event System is used to connect the TCC, TC, and ADC peripherals. This allows for the automated triggering of the ADC sampling after the PWM pulse, without any CPU intervention.
+
+5. **DMA (Direct Memory Access):** DMA is used to transfer the ADC results to memory, further reducing the CPU load.
+
+## How it Works (STM32)
+
+STM32 microcontrollers are well-suited for motor control applications, and this library takes full advantage of their advanced peripherals. STMicroelectronics provides a wealth of information on motor control with STM32 microcontrollers in their "[Introduction to Motor Control with STM32](https://wiki.st.com/stm32mcu/wiki/STM32MotorControl:Introduction_to_Motor_Control_with_STM32)" guide.
+
+1. **Advanced-Control Timers (TIM1/TIM8):** These timers are specifically designed for motor control applications. They have complementary PWM outputs with dead-time insertion, which is essential for driving H-bridges.
+
+2. **ADC (Analog-to-Digital Converter):** The ADC is used to measure the BEMF from the motor windings. The timers can be configured to trigger the ADC at the precise moment required for an accurate reading.
+
+3. **DMA (Direct Memory Access):** DMA is used to transfer the ADC results to memory without any CPU intervention, which is essential for high-performance applications.
+
+4. **Timer Synchronization:** The STM32's timers can be synchronized with each other, allowing for complex control schemes and precise timing between the PWM signals and the ADC measurements.
