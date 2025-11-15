@@ -38,7 +38,7 @@ jobs:
       - name: Configure Arduino CLI
         run: |
           arduino-cli config init
-          arduino-cli config set board_manager.additional_urls "https://adafruit.github.io/arduino-board-index/package_adafruit_index.json,https://files.espressif.com/dl/package_esp32_index.json,https://raw.githubusercontent.com/stm32duino/BoardManagerFiles/main/package_stmicroelectronics_index.json"
+          arduino-cli config set board_manager.additional_urls "https://adafruit.github.io/arduino-board-index/package_adafruit_index.json,https://files.espressif.com/dl/package_esp32_index.json,https://github.com/stm32duino/BoardManagerFiles/raw/main/package_stmicroelectronics_index.json"
           arduino-cli core update-index
 
       - name: Install platform
