@@ -13,6 +13,10 @@
 #include "soc/soc_caps.h"
 #include "driver/adc.h"
 #include "soc/adc_channel.h"
+#include "hal/adc_ll.h"
+#include "esp_private/adc_private.h"
+#include "hal/dma_types.h"
+#include "soc/i2s_struct.h"
 
 // PWM frequency for the motor driver
 const uint32_t PWM_FREQUENCY_HZ = 25000;
@@ -277,11 +281,34 @@ void hal_read_and_process_bemf() {
     }
 }
 
+static int get_dma_write_pos() {
+    // The ADC DMA on ESP32 uses the I2S0 peripheral. We can get the DMA
+    // descriptor address to find the current write position.
+    dma_descriptor_t* desc = (dma_descriptor_t*) I2S0.in_suc_eof_desc_addr;
+    // The descriptor's buffer pointer gives us the address where the DMA last wrote.
+    uintptr_t current_write_addr = (uintptr_t)desc->buffer;
+    uintptr_t buffer_start_addr = (uintptr_t)s_dma_buf;
+    int byte_offset = current_write_addr - buffer_start_addr;
+
+    // The DMA buffer is circular. If we have a negative offset, it means the
+    // write pointer has wrapped around, or we're at the beginning of the chain.
+    // We need to find the descriptor that is currently pointing into our buffer.
+    if (byte_offset < 0 || byte_offset > ADC_DMA_BUF_SIZE) {
+        // This is a simplified approach. A more robust solution might be needed
+        // if the DMA controller is using a complex descriptor chain.
+        // For now, we assume the next descriptor is the one we want.
+        desc = (dma_descriptor_t*)desc->next;
+        current_write_addr = (uintptr_t)desc->buffer;
+        byte_offset = current_write_addr - buffer_start_addr;
+    }
+
+    // Convert byte offset to sample index.
+    return byte_offset / sizeof(uint16_t);
+}
+
 int hal_motor_get_bemf_buffer(volatile uint16_t** buffer, int* last_write_pos) {
     *buffer = s_dma_buf;
-    // NOTE: The ESP-IDF ADC digital controller driver does not currently
-    // provide a way to get the current DMA write position. Returning 0.
-    *last_write_pos = 0;
+    *last_write_pos = get_dma_write_pos();
     return ADC_DMA_BUF_SIZE;
 }
 
