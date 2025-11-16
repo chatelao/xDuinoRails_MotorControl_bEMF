@@ -27,8 +27,6 @@ At its core, this library uses back-EMF (BEMF) sensing to measure the motor's ac
 1.  Add this repository to the `lib_deps` section of your `platformio.ini` file:
     ```ini
     lib_deps =
-        https://github.com/chatelao/xDuinoRails_RP2040-BDR6133-Tester.git
-        denyssene/SimpleKalmanFilter
     ```
 2.  PlatformIO will automatically download and install the library the next time you build your project.
 
