@@ -4,10 +4,10 @@
 // Pin Definitions
 #if defined(ARDUINO_SEEED_XIAO_RP2040)
 // For Seeed XIAO RP2040
-const int PWM_A_PIN = 9;  // D9
-const int PWM_B_PIN = 10; // D10
-const int BEMF_A_PIN = 7; // D7
-const int BEMF_B_PIN = 8; // D8
+const int PWM_A_PIN = D9;
+const int PWM_B_PIN = D10;
+const int BEMF_A_PIN = D7;
+const int BEMF_B_PIN = D8;
 #else
 // Default pins for other boards
 const int PWM_A_PIN = 28;
