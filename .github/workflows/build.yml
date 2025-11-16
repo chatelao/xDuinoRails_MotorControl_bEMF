@@ -1,3 +1,4 @@
+---
 name: Build and Release
 
 on:
@@ -11,8 +12,18 @@ jobs:
   build:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        platform: [seeed_xiao_rp2040, esp32_s2_saola, esp32_s3_devkit, seeed_xiao_esp32c3, nucleo_f446re]
+        platform:
+          - seeed_xiao_rp2040
+          - esp32_s2_saola
+          - esp32_s3_devkit
+          - seeed_xiao_esp32c3
+          - nucleo_f446re
+          - seeed_xiao_samd21
+        example:
+          - CustomControlLoop
+          - RotaryEncoderWithBEMF
 
     steps:
       - name: Checkout repository
@@ -30,22 +41,29 @@ jobs:
           pip install -r scripts/requirements.txt
 
       - name: Build Firmware
+        env:
+          PIOPROJECT_SRC_DIR: examples/${{ matrix.example }}
         run: pio run -e ${{ matrix.platform }}
 
-      - name: Rename Firmware
+      - name: Rename Firmware and Set Path
+        id: rename
         run: |
+          FIRMWARE_BASENAME="xDuinoRails_MotorControl_bEMF-"
+          FIRMWARE_BASENAME="${FIRMWARE_BASENAME}${{ matrix.example }}-"
+          FIRMWARE_BASENAME="${FIRMWARE_BASENAME}${{ matrix.platform }}"
+          BUILD_DIR=".pio/build/${{ matrix.platform }}"
           if [ "${{ matrix.platform }}" == "seeed_xiao_rp2040" ]; then
-            mv .pio/build/${{ matrix.platform }}/firmware.uf2 xDuinoRails_MotorControl_bEMF_${{ matrix.platform }}.uf2
+            mv "${BUILD_DIR}/firmware.uf2" "${FIRMWARE_BASENAME}.uf2"
           else
-            mv .pio/build/${{ matrix.platform }}/firmware.bin xDuinoRails_MotorControl_bEMF_${{ matrix.platform }}.bin
+            mv "${BUILD_DIR}/firmware.bin" "${FIRMWARE_BASENAME}.bin"
           fi
+          echo "firmware_glob=${FIRMWARE_BASENAME}.*" >> $GITHUB_OUTPUT
 
       - name: Upload firmware as artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.platform }}-firmware
-          path: |
-            xDuinoRails_MotorControl_bEMF_${{ matrix.platform }}.*
+          name: ${{ matrix.platform }}-${{ matrix.example }}-firmware
+          path: ${{ steps.rename.outputs.firmware_glob }}
 
   release:
     runs-on: ubuntu-latest
