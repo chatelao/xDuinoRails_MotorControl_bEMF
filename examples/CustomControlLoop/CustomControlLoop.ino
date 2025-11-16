@@ -1,12 +1,15 @@
 #include <XDuinoRails_MotorDriver.h>
+#include "StatusLED.h"
 
 // Pin Definitions for XIAO RP2040
 const int PWM_A_PIN = 28;
 const int PWM_B_PIN = 29;
 const int BEMF_A_PIN = 26;
 const int BEMF_B_PIN = 27;
+const int STATUS_LED_PIN = LED_BUILTIN;
 
 XDuinoRails_MotorDriver motor(PWM_A_PIN, PWM_B_PIN, BEMF_A_PIN, BEMF_B_PIN);
+StatusLED status_led(STATUS_LED_PIN);
 
 // --- Custom Moving Average Filter ---
 const int num_readings = 5;
@@ -52,10 +55,15 @@ void setup() {
 
     motor.setDirection(true);
     motor.setTargetSpeed(100);
+
+    status_led.begin();
+    status_led.on(); // Motor starts immediately
 }
 
 void loop() {
     motor.update();
+
+    status_led.update();
 
     static unsigned long last_print_ms = 0;
     if (millis() - last_print_ms > 100) {
