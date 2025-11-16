@@ -33,21 +33,33 @@ extern "C" void DMA2_Stream0_IRQHandler(void) {
     HAL_DMA_IRQHandler(&hdma_adc);
 }
 
-// This callback is invoked by the HAL when the ADC DMA transfer is complete.
-void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) {
+// This function processes a buffer of ADC readings to calculate the average BEMF.
+static void process_bemf_data(volatile uint16_t* buffer, uint32_t length) {
     uint32_t sum_A = 0, sum_B = 0;
-    // The ADC is configured to sample BEMF A, then BEMF B, and so on.
-    // This loop de-interleaves the DMA buffer and sums the readings for each channel.
-    for (uint i = 0; i < BEMF_RING_BUFFER_SIZE; i += 2) {
-        sum_A += bemf_ring_buffer[i];
-        sum_B += bemf_ring_buffer[i + 1];
+    // The ADC samples are interleaved (A, B, A, B, ...). This loop de-interleaves
+    // them and calculates the sum for each channel.
+    for (uint32_t i = 0; i < length; i += 2) {
+        sum_A += buffer[i];
+        sum_B += buffer[i + 1];
     }
     // Calculate the average differential BEMF.
-    int measured_bemf = abs((int)(sum_A / (BEMF_RING_BUFFER_SIZE / 2)) - (int)(sum_B / (BEMF_RING_BUFFER_SIZE / 2)));
+    int measured_bemf = abs((int)(sum_A / (length / 2)) - (int)(sum_B / (length / 2)));
 
     if (bemf_callback) {
         bemf_callback(measured_bemf);
     }
+}
+
+// This callback is invoked by the HAL when the ADC DMA transfer is complete.
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) {
+    // The DMA has filled the entire buffer, so we process the second half.
+    process_bemf_data(&bemf_ring_buffer[BEMF_RING_BUFFER_SIZE / 2], BEMF_RING_BUFFER_SIZE / 2);
+}
+
+// This callback is invoked by the HAL when the ADC DMA transfer reaches the halfway point.
+void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef* hadc) {
+    // The DMA has filled the first half of the buffer, so we process it.
+    process_bemf_data(bemf_ring_buffer, BEMF_RING_BUFFER_SIZE / 2);
 }
 
 void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, uint8_t bemf_b_pin, hal_bemf_update_callback_t callback) {
