@@ -16,6 +16,7 @@
 //== Hardware Timer & BEMF Measurement Parameters ==
 const uint PWM_FREQUENCY_HZ = 25000;
 const uint BEMF_MEASUREMENT_DELAY_US = 10;
+const uint BEMF_RING_BUFFER_SIZE = 64;
 
 //== Static Globals for Hardware Control ==
 static hal_bemf_update_callback_t bemf_callback = nullptr;
@@ -23,6 +24,9 @@ static uint8_t g_pwm_a_pin;
 static uint8_t g_pwm_b_pin;
 static uint8_t g_bemf_a_pin;
 static uint8_t g_bemf_b_pin;
+static volatile uint16_t bemf_ring_buffer[BEMF_RING_BUFFER_SIZE];
+static volatile int bemf_buffer_write_pos = 0;
+
 
 // Globals for the ADC ISR state machine
 static volatile int bemf_a_reading = -1;
@@ -38,15 +42,19 @@ static volatile bool next_adc_is_a = true;
 void ADC_Handler() {
     // Check if the Result Ready interrupt flag is set
     if (ADC->INTFLAG.bit.RESRDY) {
+        uint16_t current_reading = ADC->RESULT.reg;
+        bemf_ring_buffer[bemf_buffer_write_pos] = current_reading;
+        bemf_buffer_write_pos = (bemf_buffer_write_pos + 1) % BEMF_RING_BUFFER_SIZE;
+
         if (next_adc_is_a) {
             // Store the reading for pin A
-            bemf_a_reading = ADC->RESULT.reg;
+            bemf_a_reading = current_reading;
             // Configure the ADC's positive input to be pin B for the next conversion
             ADC->INPUTCTRL.bit.MUXPOS = g_APinDescription[g_bemf_b_pin].ulADCChannelNumber;
             next_adc_is_a = false;
         } else {
             // We just finished reading pin B, so now we have a complete pair.
-            int bemf_b_reading = ADC->RESULT.reg;
+            int bemf_b_reading = current_reading;
             // Configure the ADC's positive input back to pin A for the next cycle
             ADC->INPUTCTRL.bit.MUXPOS = g_APinDescription[g_bemf_a_pin].ulADCChannelNumber;
             next_adc_is_a = true;
@@ -193,9 +201,9 @@ void hal_motor_set_pwm(int duty_cycle, bool forward) {
 }
 
 int hal_motor_get_bemf_buffer(volatile uint16_t** buffer, int* last_write_pos) {
-    *buffer = nullptr;
-    *last_write_pos = 0;
-    return 0;
+    *buffer = bemf_ring_buffer;
+    *last_write_pos = bemf_buffer_write_pos;
+    return BEMF_RING_BUFFER_SIZE;
 }
 
 #endif // defined(USE_SAMD21_LOWLEVEL) && defined(ARDUINO_ARCH_SAMD)
