@@ -157,4 +157,16 @@ void hal_motor_deinit() {
     delete pwm_timer;
 }
 
+int hal_motor_get_bemf_buffer(volatile uint16_t** buffer, int* last_write_pos) {
+    *buffer = bemf_ring_buffer;
+
+    // The DMA's NDTR (Number of Data to Transfer) register counts down.
+    // The number of items already written to the buffer is the total size
+    // minus the number of items remaining.
+    uint32_t remaining_transfers = __HAL_DMA_GET_COUNTER(&hdma_adc);
+    *last_write_pos = BEMF_RING_BUFFER_SIZE - remaining_transfers;
+
+    return BEMF_RING_BUFFER_SIZE;
+}
+
 #endif // ARDUINO_ARCH_STM32

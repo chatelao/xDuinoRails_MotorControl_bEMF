@@ -154,4 +154,10 @@ void hal_motor_set_pwm(int duty_cycle, bool forward) {
     }
 }
 
+int hal_motor_get_bemf_buffer(volatile uint16_t** buffer, int* last_write_pos) {
+    *buffer = nullptr;
+    *last_write_pos = 0;
+    return 0;
+}
+
 #endif // ARDUINO_ARCH_NRF52
