@@ -152,8 +152,18 @@ void hal_motor_set_pwm(int duty_cycle, bool forward) {
     }
 }
 
-int hal_motor_get_bemf_buffer(volatile uint16_t** buffer) {
+int hal_motor_get_bemf_buffer(volatile uint16_t** buffer, int* last_write_pos) {
     *buffer = bemf_ring_buffer;
+
+    // Get the current write address from the DMA controller.
+    uintptr_t current_write_addr = (uintptr_t)dma_channel_get_write_addr(dma_channel);
+    // Calculate the offset from the beginning of the buffer.
+    uintptr_t buffer_start_addr = (uintptr_t)bemf_ring_buffer;
+    int byte_offset = current_write_addr - buffer_start_addr;
+
+    // Convert the byte offset to a sample index.
+    *last_write_pos = byte_offset / sizeof(uint16_t);
+
     return BEMF_RING_BUFFER_SIZE;
 }
 

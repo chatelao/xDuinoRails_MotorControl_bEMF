@@ -48,7 +48,8 @@ static adc_channel_t g_bemf_a_channel;
 static adc_channel_t g_bemf_b_channel;
 
 // The DMA buffer where the ADC results will be stored.
-static uint16_t s_dma_buf[ADC_DMA_BUF_SIZE] = {0};
+// Must be volatile as it's written by DMA hardware.
+static volatile uint16_t s_dma_buf[ADC_DMA_BUF_SIZE] = {0};
 
 // Handles for the various ESP32 hardware peripherals we are using.
 static mcpwm_cmpr_handle_t comparator_a = nullptr;
@@ -262,9 +263,9 @@ void hal_read_and_process_bemf() {
     // Read the data from the DMA buffer. This is a non-blocking call.
     uint8_t result = adc_digi_read_bytes((uint8_t*)&results, ADC_CONV_FRAME_SIZE, &ret_num, 0);
 
-    if (result == ESP_OK) {
+    if (result == ESP_OK && ret_num > 0) {
         // Since our pattern has two channels, we process the results in pairs.
-        for (int i = 0; i < ret_num; i += 2) {
+        for (int i = 0; i < ret_num / sizeof(adc_digi_output_data_t); i += 2) {
             uint16_t adc_val_a = results[i].type2.data;
             uint16_t adc_val_b = results[i+1].type2.data;
 
@@ -274,6 +275,14 @@ void hal_read_and_process_bemf() {
             }
         }
     }
+}
+
+int hal_motor_get_bemf_buffer(volatile uint16_t** buffer, int* last_write_pos) {
+    *buffer = s_dma_buf;
+    // NOTE: The ESP-IDF ADC digital controller driver does not currently
+    // provide a way to get the current DMA write position. Returning 0.
+    *last_write_pos = 0;
+    return ADC_DMA_BUF_SIZE;
 }
 
 void hal_motor_set_pwm(int duty_cycle, bool forward) {

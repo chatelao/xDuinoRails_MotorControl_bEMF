@@ -61,8 +61,10 @@ void hal_motor_set_pwm(int duty_cycle, bool forward);
  *
  * @param[out] buffer A pointer to a uint16_t pointer that will be set to the
  *                    address of the internal ring buffer.
+ * @param[out] last_write_pos A pointer to an integer that will be set to the
+ *                            last written position in the buffer.
  * @return The total size of the ring buffer (number of samples).
  */
-int hal_motor_get_bemf_buffer(volatile uint16_t** buffer);
+int hal_motor_get_bemf_buffer(volatile uint16_t** buffer, int* last_write_pos);
 
 #endif // MOTOR_CONTROL_HAL_H
