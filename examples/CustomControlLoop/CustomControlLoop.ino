@@ -1,11 +1,20 @@
 #include <XDuinoRails_MotorDriver.h>
 #include "StatusLED.h"
 
-// Pin Definitions for XIAO RP2040
+// Pin Definitions
+#if defined(ARDUINO_SEEED_XIAO_RP2040)
+// For Seeed XIAO RP2040
+const int PWM_A_PIN = D9;
+const int PWM_B_PIN = D10;
+const int BEMF_A_PIN = D7;
+const int BEMF_B_PIN = D8;
+#else
+// Default pins for other boards
 const int PWM_A_PIN = 28;
 const int PWM_B_PIN = 29;
 const int BEMF_A_PIN = 26;
 const int BEMF_B_PIN = 27;
+#endif
 const int STATUS_LED_PIN = LED_BUILTIN;
 
 XDuinoRails_MotorDriver motor(PWM_A_PIN, PWM_B_PIN, BEMF_A_PIN, BEMF_B_PIN);
