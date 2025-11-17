@@ -163,4 +163,3 @@ For those interested in the technical details, the library follows this control 
 This entire process happens automatically within the `update()` function.
 
 
-![Control Loop Diagram](http://www.plantuml.com/plantuml/proxy?src=https://raw.githubusercontent.com/chatelao/xDuinoRails_RP2040-BDR6133-Tester/main/docs/control_loop.puml)
