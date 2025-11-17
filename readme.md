@@ -98,4 +98,20 @@ Retrieves the BEMF ring buffer for diagnostics. This function provides low-level
 
 ### `hal_bemf_update_callback_t`
 
-A callback function pointer type for BEMF updates. This function is called from an interrupt context whenever a new differential BEMF measurement is available from the hardware.
+This is a `typedef` for a function pointer that is used to handle BEMF updates. A function matching this signature must be passed to `hal_motor_init`. This callback is executed from an interrupt context whenever a new differential BEMF measurement is available from the hardware.
+
+**Signature:**
+```cpp
+void your_callback_function_name(int raw_bemf_value);
+```
+-   `raw_bemf_value`: The raw, unfiltered differential BEMF value, calculated as the absolute difference between the two ADC readings.
+
+**Example:**
+```cpp
+void on_bemf_update(int raw_bemf) {
+  // IMPORTANT: Keep this function short and fast as it runs in an interrupt.
+  // Perform filtering, processing, and control logic adjustments here.
+  Serial.print("Raw BEMF: ");
+  Serial.println(raw_bemf);
+}
+```

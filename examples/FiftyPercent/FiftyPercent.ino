@@ -17,16 +17,16 @@
 // --- Pin Definitions ---
 #if defined(ARDUINO_SEEED_XIAO_RP2040)
 // For Seeed XIAO RP2040
-const int MOTOR_PWM_A_PIN = D9;
-const int MOTOR_PWM_B_PIN = D10;
-const int MOTOR_BEMF_A_PIN = D7;
-const int MOTOR_BEMF_B_PIN = D8;
+const int MOTOR_PWM_A_PIN       =  D9;
+const int MOTOR_PWM_B_PIN       = D10;
+const int MOTOR_BEMF_A_PIN      =  D7;
+const int MOTOR_BEMF_B_PIN      =  D8;
 #else
 // Default pins for other boards
-const int MOTOR_PWM_A_PIN = 7;
-const int MOTOR_PWM_B_PIN = 8;
-const int MOTOR_BEMF_A_PIN = A3;
-const int MOTOR_BEMF_B_PIN = A2;
+const int MOTOR_PWM_A_PIN       =   7;
+const int MOTOR_PWM_B_PIN       =   8;
+const int MOTOR_BEMF_A_PIN      =  A3;
+const int MOTOR_BEMF_B_PIN      =  A2;
 #endif
 
 void setup() {
@@ -42,8 +42,8 @@ void setup() {
   hal_motor_init(MOTOR_PWM_A_PIN, MOTOR_PWM_B_PIN, MOTOR_BEMF_A_PIN, MOTOR_BEMF_B_PIN, nullptr);
 
   // Set motor speed to 50% (127 out of 255) in the forward direction.
-  const int fifty_percent_speed = 127;
-  const bool forward_direction = true;
+  const int fifty_percent_speed =  127;
+  const bool forward_direction  = true;
   hal_motor_set_pwm(fifty_percent_speed, forward_direction);
 
   Serial.println("Motor running at 50% speed.");

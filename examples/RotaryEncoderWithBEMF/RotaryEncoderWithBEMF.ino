@@ -28,26 +28,26 @@
 // --- Pin Definitions ---
 #if defined(ARDUINO_SEEED_XIAO_RP2040)
 // For Seeed XIAO RP2040
-const int MOTOR_PWM_A_PIN = D9;
-const int MOTOR_PWM_B_PIN = D10;
-const int MOTOR_BEMF_A_PIN = D7;
-const int MOTOR_BEMF_B_PIN = D8;
+const int MOTOR_PWM_A_PIN       =  D9;
+const int MOTOR_PWM_B_PIN       = D10;
+const int MOTOR_BEMF_A_PIN      =  D7;
+const int MOTOR_BEMF_B_PIN      =  D8;
 #else
 // Default pins for other boards
-const int MOTOR_PWM_A_PIN = 7;
-const int MOTOR_PWM_B_PIN = 8;
-const int MOTOR_BEMF_A_PIN = A3;
-const int MOTOR_BEMF_B_PIN = A2;
+const int MOTOR_PWM_A_PIN       =   7;
+const int MOTOR_PWM_B_PIN       =   8;
+const int MOTOR_BEMF_A_PIN      =  A3;
+const int MOTOR_BEMF_B_PIN      =  A2;
 #endif
 
 // Define the pins for the rotary encoder.
-const int ENCODER_PIN_A = 0;      // CLK pin
-const int ENCODER_PIN_B = 1;      // DT pin
-const int ENCODER_SWITCH_PIN = 9; // SW pin
+const int ENCODER_PIN_A         =   0;      // CLK pin
+const int ENCODER_PIN_B         =   1;      // DT pin
+const int ENCODER_SWITCH_PIN    =   9; // SW pin
 
 // Define the pin for the status LED.
-const int STATUS_LED_PIN = LED_BUILTIN;
-const int BEMF_STATUS_LED_PIN = 2;
+const int STATUS_LED_PIN        = LED_BUILTIN;
+const int BEMF_STATUS_LED_PIN   =   2;
 
 // --- Status LED Instance ---
 StatusLED status_led(STATUS_LED_PIN);
@@ -68,16 +68,16 @@ void on_bemf_update(int raw_bemf) {
 RotaryEncoder encoder(ENCODER_PIN_A, ENCODER_PIN_B);
 
 // --- Control Logic Parameters ---
-const long ENCODER_MIN_POSITION = 0;
-const long ENCODER_MAX_POSITION = 24; // Assumes a standard 24-detent encoder for one full turn.
-const int MAX_PWM_DUTY_CYCLE = 255;   // The PWM duty cycle at 100% encoder turn.
-bool motorDirection = true;           // Current motor direction: true for forward, false for reverse.
-int current_speed = 0;                // Current motor speed
+const long ENCODER_MIN_POSITION =   0;
+const long ENCODER_MAX_POSITION =  24; // Assumes a standard 24-detent encoder for one full turn.
+const int MAX_PWM_DUTY_CYCLE    = 255;   // The PWM duty cycle at 100% encoder turn.
+bool motorDirection             = true;           // Current motor direction: true for forward, false for reverse.
+int current_speed               =   0;                // Current motor speed
 
 // --- Button Debouncing ---
 // Variables to handle button debouncing to prevent multiple triggers from a single press.
-unsigned long lastButtonPressTime = 0;
-const unsigned long DEBOUNCE_DELAY = 50; // 50 milliseconds
+unsigned long lastButtonPressTime   =  0;
+const unsigned long DEBOUNCE_DELAY      = 50; // 50 milliseconds
 
 void setup() {
   // Start serial communication for debugging output.

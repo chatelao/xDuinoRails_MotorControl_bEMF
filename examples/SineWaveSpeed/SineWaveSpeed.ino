@@ -21,28 +21,28 @@
 // --- Pin Definitions ---
 #if defined(ARDUINO_SEEED_XIAO_RP2040)
 // For Seeed XIAO RP2040
-const int MOTOR_PWM_A_PIN = D9;
-const int MOTOR_PWM_B_PIN = D10;
-const int MOTOR_BEMF_A_PIN = D7;
-const int MOTOR_BEMF_B_PIN = D8;
+const int MOTOR_PWM_A_PIN       =  D9;
+const int MOTOR_PWM_B_PIN       = D10;
+const int MOTOR_BEMF_A_PIN      =  D7;
+const int MOTOR_BEMF_B_PIN      =  D8;
 #else
 // Default pins for other boards
-const int MOTOR_PWM_A_PIN = 7;
-const int MOTOR_PWM_B_PIN = 8;
-const int MOTOR_BEMF_A_PIN = A3;
-const int MOTOR_BEMF_B_PIN = A2;
+const int MOTOR_PWM_A_PIN       =   7;
+const int MOTOR_PWM_B_PIN       =   8;
+const int MOTOR_BEMF_A_PIN      =  A3;
+const int MOTOR_BEMF_B_PIN      =  A2;
 #endif
 
-const int STATUS_LED_PIN = LED_BUILTIN;
+const int STATUS_LED_PIN        = LED_BUILTIN;
 
 // --- Status LED Instance ---
 StatusLED status_led(STATUS_LED_PIN);
 
 // --- Sine Wave Parameters ---
-const float SINE_WAVE_PERIOD = 2500; // 2.5 seconds in milliseconds
-const int MIN_PWM_DUTY_CYCLE =   64;   // 25% of 255
-const int MAX_PWM_DUTY_CYCLE =  191;  // 75% of 255
-bool motorDirection = true;           // Motor direction: true for forward
+const float SINE_WAVE_PERIOD    = 2500; // 2.5 seconds in milliseconds
+const int MIN_PWM_DUTY_CYCLE    =   64;   // 25% of 255
+const int MAX_PWM_DUTY_CYCLE    =  191;  // 75% of 255
+bool motorDirection             = true;   // Motor direction: true for forward
 
 void setup() {
   Serial.begin(115200);
