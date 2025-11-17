@@ -162,13 +162,5 @@ For those interested in the technical details, the library follows this control 
 
 This entire process happens automatically within the `update()` function.
 
-## Advanced Extensibility
-
-For advanced users, the library now offers a high degree of flexibility by allowing you to replace core components with your own custom logic:
-
-*   **Customizable Filter Pipeline:** The default EMA and Kalman filters can be replaced or augmented with any number of custom filter functions. You can create complex, multi-stage signal processing chains tailored to your specific motor and application.
-*   **Custom Speed Controller:** The internal PI controller, along with its associated logic for acceleration and stall detection, can be completely replaced by your own controller function. This allows you to implement any control strategy you can imagine, from a simple proportional controller to a more complex PID or fuzzy logic controller.
-
-Check out the `CustomControlLoop` example to see a practical demonstration of how to use these powerful features.
 
 ![Control Loop Diagram](http://www.plantuml.com/plantuml/proxy?src=https://raw.githubusercontent.com/chatelao/xDuinoRails_RP2040-BDR6133-Tester/main/docs/control_loop.puml)
