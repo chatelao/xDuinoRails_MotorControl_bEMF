@@ -4,7 +4,7 @@
 # Project related configuration options
 #---------------------------------------------------------------------------
 DOXYFILE_ENCODING      = UTF-8
-PROJECT_NAME           = "XDuinoRails Motor Driver"
+PROJECT_NAME           = "XDuinoRails Motor Driver bEMF"
 PROJECT_NUMBER         =
 PROJECT_BRIEF          = "A powerful, closed-loop motor driver library for Arduino and PlatformIO"
 PROJECT_LOGO           =
