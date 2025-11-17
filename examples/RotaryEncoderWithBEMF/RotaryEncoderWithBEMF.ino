@@ -47,15 +47,18 @@ const int ENCODER_SWITCH_PIN = 9; // SW pin
 
 // Define the pin for the status LED.
 const int STATUS_LED_PIN = LED_BUILTIN;
+const int BEMF_STATUS_LED_PIN = 2;
 
 // --- Status LED Instance ---
 StatusLED status_led(STATUS_LED_PIN);
+StatusLED bemf_status_led(BEMF_STATUS_LED_PIN);
 
 // --- BEMF Callback ---
 // This function is called from an interrupt whenever a new BEMF value is available.
 void on_bemf_update(int raw_bemf) {
   // For this simple example, we'll just print the raw value.
   // In a real application, you would filter and process this data.
+  bemf_status_led.blink(50);
   Serial.print("Raw BEMF: ");
   Serial.println(raw_bemf);
 }
@@ -97,6 +100,7 @@ void setup() {
 
   // Initialize the status LED.
   status_led.begin();
+  bemf_status_led.begin();
 }
 
 void loop() {
@@ -105,6 +109,7 @@ void loop() {
 
   // Update the status LED.
   status_led.update();
+  bemf_status_led.update();
 
   // --- Encoder Logic for Speed Control ---
   long newPosition = encoder.getPosition();
