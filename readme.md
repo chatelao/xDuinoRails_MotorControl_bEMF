@@ -1,4 +1,4 @@
-# XDuinoRails Motor Driver
+# XDuinoRails Motor Driver bEMF
 
 A powerful, closed-loop motor driver library for Arduino and PlatformIO, designed for controlling DC motors with high precision. This library is ideal for projects like model trains, robotics, or any application that requires smooth and accurate speed control.
 
