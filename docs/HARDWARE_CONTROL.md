@@ -1,6 +1,6 @@
 # Hardware-beschleunigte Motor-Steuerung (CPU-assistiert)
 
-Dieses Dokument beschreibt die hardwarebeschleunigte Motoransteuerung und BEMF-Messung, die implementiert wird, wenn das Compiler-Flag `USE_RP2040_LOWLEVEL` gesetzt ist. Diese Implementierung nutzt die Standard-Peripherie (PWM, ADC, DMA) des RP2040 und eine minimale CPU-Unterstützung, um eine präzise und CPU-schonende Steuerung zu erreichen.
+Dieses Dokument beschreibt die hardwarebeschleunigte Motoransteuerung und BEMF-Messung, die für den RP2040 implementiert ist. Diese Implementierung nutzt die Standard-Peripherie (PWM, ADC, DMA) des RP2040 und eine minimale CPU-Unterstützung, um eine präzise und CPU-schonende Steuerung zu erreichen.
 
 ## Architektur-Überblick
 
