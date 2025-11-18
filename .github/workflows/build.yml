@@ -16,6 +16,7 @@ jobs:
       matrix:
         platform:
           - seeed_xiao_rp2040
+          - seeed_xiao_rp2040_led
           - esp32_s2_saola
           - esp32_s3_devkit
           - seeed_xiao_esp32c3
@@ -51,12 +52,18 @@ jobs:
           FIRMWARE_BASENAME="${FIRMWARE_BASENAME}${{ matrix.example }}-"
           FIRMWARE_BASENAME="${FIRMWARE_BASENAME}${{ matrix.platform }}"
           BUILD_DIR=".pio/build/${{ matrix.platform }}"
-          if [ "${{ matrix.platform }}" == "seeed_xiao_rp2040" ]; then
+          if [[ "${{ matrix.platform }}" == "seeed_xiao_rp2040_led" ]]; then
+            mv "${BUILD_DIR}/firmware.uf2" "${FIRMWARE_BASENAME}_led.uf2"
+          elif [ "${{ matrix.platform }}" == "seeed_xiao_rp2040" ]; then
             mv "${BUILD_DIR}/firmware.uf2" "${FIRMWARE_BASENAME}.uf2"
           else
             mv "${BUILD_DIR}/firmware.bin" "${FIRMWARE_BASENAME}.bin"
           fi
-          echo "firmware_glob=${FIRMWARE_BASENAME}.*" >> $GITHUB_OUTPUT
+          if [[ "${{ matrix.platform }}" == "seeed_xiao_rp2040_led" ]]; then
+            echo "firmware_glob=${FIRMWARE_BASENAME}_led.*" >> $GITHUB_OUTPUT
+          else
+            echo "firmware_glob=${FIRMWARE_BASENAME}.*" >> $GITHUB_OUTPUT
+          fi
 
       - name: Upload firmware as artifact
         uses: actions/upload-artifact@v4
