@@ -17,7 +17,7 @@ AGENTS.md
 # Code
 Follow the most used file & code naming conventions in the project:
 - If not yet provided use “snake case”
-- Keep ".md" documentation files uppercase snake
+- Use `UPPER_SNAKE_CASE` for all `.md` filenames (e.g., `README.md`, `CONTRIBUTING.md`).
 - Comment lines if magic numbers or complex operations are used
 - Align the variable assignments with the "=" stacked the numbers right aligned.
 
