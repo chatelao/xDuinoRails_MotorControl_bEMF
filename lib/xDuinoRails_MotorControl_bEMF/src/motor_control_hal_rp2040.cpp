@@ -10,7 +10,7 @@
 
 #include "motor_control_hal.h"
 
-#if defined(USE_RP2040_LOWLEVEL) && defined(ARDUINO_ARCH_RP2040)
+#if defined(ARDUINO_ARCH_RP2040)
 
 #include <Arduino.h>
 #include "hardware/pwm.h"
@@ -167,4 +167,4 @@ int hal_motor_get_bemf_buffer(volatile uint16_t** buffer, int* last_write_pos) {
     return BEMF_RING_BUFFER_SIZE;
 }
 
-#endif // USE_RP2040_LOWLEVEL && ARDUINO_ARCH_RP2040
+#endif // ARDUINO_ARCH_RP2040
