@@ -23,8 +23,9 @@ jobs:
           - nucleo_f446re
           - seeed_xiao_samd21
         example:
-          - CustomControlLoop
+          - FiftyPercent
           - RotaryEncoderWithBEMF
+          - SineWaveSpeed
 
     steps:
       - name: Checkout repository
