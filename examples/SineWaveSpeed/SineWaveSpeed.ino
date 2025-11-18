@@ -20,11 +20,19 @@
 
 // --- Pin Definitions ---
 #if defined(ARDUINO_SEEED_XIAO_RP2040)
-// For Seeed XIAO RP2040
-const int MOTOR_PWM_A_PIN       =  D9;
-const int MOTOR_PWM_B_PIN       = D10;
-const int MOTOR_BEMF_A_PIN      =  D7;
-const int MOTOR_BEMF_B_PIN      =  D8;
+    #ifdef LED_EDITION
+        // For Seeed XIAO RP2040 "LED Edition"
+        const int MOTOR_PWM_A_PIN       = 17; // Red LED
+        const int MOTOR_PWM_B_PIN       = 16; // Green LED
+        const int MOTOR_BEMF_A_PIN      = D7;
+        const int MOTOR_BEMF_B_PIN      = D8;
+    #else
+        // For standard Seeed XIAO RP2040
+        const int MOTOR_PWM_A_PIN       =  D9;
+        const int MOTOR_PWM_B_PIN       = D10;
+        const int MOTOR_BEMF_A_PIN      =  D7;
+        const int MOTOR_BEMF_B_PIN      =  D8;
+    #endif
 #else
 // Default pins for other boards
 const int MOTOR_PWM_A_PIN       =   7;
