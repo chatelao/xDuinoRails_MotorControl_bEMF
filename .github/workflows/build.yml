@@ -23,9 +23,16 @@ jobs:
           - nucleo_f446re
           - seeed_xiao_samd21
         example:
-          - FiftyPercent
-          - RotaryEncoderWithBEMF
           - SineWaveSpeed
+        include:
+          - platform: seeed_xiao_rp2040
+            example: FiftyPercent
+          - platform: seeed_xiao_rp2040_led
+            example: FiftyPercent
+          - platform: seeed_xiao_rp2040
+            example: RotaryEncoderWithBEMF
+          - platform: seeed_xiao_rp2040_led
+            example: RotaryEncoderWithBEMF
 
     steps:
       - name: Checkout repository
