@@ -79,6 +79,25 @@ The DRV8833 is another popular, modern MOSFET driver, ideal for low-voltage moto
 
 **BEMF Sensing:** BEMF sensing is not a built-in feature. It requires external circuitry.
 
+## Texas Instruments DRV8874
+
+**Datasheet:** [https://www.ti.com/lit/ds/symlink/drv8874.pdf](https://www.ti.com/lit/ds/symlink/drv8874.pdf)
+
+The DRV8874 is a single-channel H-bridge motor driver with integrated current sensing.
+
+| EN/IN1 | PH/IN2 | Mode |
+|---|---|---|
+| PWM | HIGH | Forward |
+| PWM | LOW | Reverse |
+| LOW | X | Coasting (Sleep) |
+| HIGH | X | Brake |
+
+*Note: Speed is controlled by the duty cycle of the PWM signal on the EN/IN1 pin.*
+
+**Current Sensing:** The DRV8874 has an ISENSE pin that provides an analog voltage proportional to the motor current.
+
+**BEMF Sensing:** BEMF sensing is not a built-in feature.
+
 ## Cytron MDD10A
 
 **Datasheet:** [https://www.cytron.io/p-mdd10a](https://www.cytron.io/p-mdd10a)
