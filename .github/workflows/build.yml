@@ -4,7 +4,8 @@ name: Build and Release
 on:
   push:
     branches:
-      - '*'
+      - '**'
+  workflow_dispatch:
   release:
     types: [created]
 
