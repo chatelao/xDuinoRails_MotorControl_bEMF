@@ -7,6 +7,12 @@
 
 #if defined(ARDUINO_ARCH_ESP32)
 
+#if defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32C3)
+#include "driver/adc.h"
+#else
+#include "driver/adc_deprecated.h"
+#endif
+
 #include <Arduino.h>
 #include "driver/mcpwm_prelude.h"
 #include "driver/gptimer.h"
@@ -134,24 +140,46 @@ void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, ui
 
     bemf_callback = callback;
 
-    // --- ADC Digital Controller (DMA Mode) Setup ---
-    // We use the ADC's digital controller to manage the BEMF sampling process.
-    // This allows the ADC to read our two BEMF pins in a specific sequence and
-    // store the results directly into the DMA buffer.
+#if defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32C3)
+    adc_digi_initialize(NULL);
+#else
+    adc_digi_init();
+#endif
 
-    // Map the GPIO pins for BEMF reading to their corresponding ADC channels.
-    // Note: These macros are specific to the ESP32 and provide a reliable way
-    // to get the correct ADC channel for a given GPIO.
+    // --- ADC Digital Controller (DMA Mode) Setup ---
     g_bemf_a_channel = (adc_channel_t)ADC1_GPIO32_CHANNEL;
     g_bemf_b_channel = (adc_channel_t)ADC1_GPIO33_CHANNEL;
 
-    // Set the attenuation for each ADC channel. This determines the voltage range.
-    // DB_11 provides the widest measurement range.
     adc1_config_channel_atten(g_bemf_a_channel, ADC_ATTEN_DB_11);
     adc1_config_channel_atten(g_bemf_b_channel, ADC_ATTEN_DB_11);
 
-    // Define the ADC conversion pattern. The digital controller will step through
-    // this pattern. Here, we tell it to read channel A, then channel B.
+#if defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32C3)
+    adc_digi_pattern_config_t adc_pattern[2] = {
+        {
+            .atten = ADC_ATTEN_DB_11,
+            .channel = g_bemf_a_channel,
+            .unit = ADC_UNIT_1,
+            .bit_width = SOC_ADC_DIGI_MAX_BITWIDTH,
+        },
+        {
+            .atten = ADC_ATTEN_DB_11,
+            .channel = g_bemf_b_channel,
+            .unit = ADC_UNIT_1,
+            .bit_width = SOC_ADC_DIGI_MAX_BITWIDTH,
+        },
+    };
+
+    adc_digi_configuration_t dig_cfg = {
+        .conv_limit_en = false,
+        .conv_limit_num = 255,
+        .pattern_num = sizeof(adc_pattern) / sizeof(adc_digi_pattern_config_t),
+        .adc_pattern = adc_pattern,
+        .sample_freq_hz = 20000,
+        .conv_mode = ADC_CONV_SINGLE_UNIT_1,
+        .format = ADC_DIGI_OUTPUT_FORMAT_TYPE2,
+    };
+    adc_digi_controller_configure(&dig_cfg);
+#else
     adc_digi_pattern_table_t adc_pattern[2] = {
         {
             .atten = ADC_ATTEN_DB_11,
@@ -167,20 +195,19 @@ void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, ui
         },
     };
 
-    // Configure the ADC digital controller with our settings and the DMA buffer.
     adc_digi_config_t dig_cfg = {
-        .conv_limit_en = false, // No limit on conversions
-        .conv_mode = ADC_CONV_SINGLE_UNIT_1, // Use ADC1
-        .format = ADC_DIGI_OUTPUT_FORMAT_TYPE2, // Standard format
+        .conv_limit_en = false,
+        .conv_mode = ADC_CONV_SINGLE_UNIT_1,
+        .format = ADC_DIGI_OUTPUT_FORMAT_TYPE2,
         .adc1_pattern_len = sizeof(adc_pattern) / sizeof(adc_digi_pattern_table_t),
         .adc1_pattern = adc_pattern,
-        .dma_eof_num = ADC_CONV_FRAME_SIZE, // Trigger interrupt after a full frame
-        .dma_work_mode = ADC_DMA_WORK_MODE_CIRCULAR, // Buffer wraps around
-        .dma_data = (void*)s_dma_buf, // Pointer to our buffer
-        .dma_size = ADC_DMA_BUF_SIZE, // Size of our buffer
+        .dma_eof_num = ADC_CONV_FRAME_SIZE,
+        .dma_work_mode = ADC_DMA_WORK_MODE_CIRCULAR,
+        .dma_data = (void*)s_dma_buf,
+        .dma_size = ADC_DMA_BUF_SIZE,
     };
     adc_digi_controller_config(&dig_cfg);
-    // Start the ADC controller. It will now wait for a trigger to start conversions.
+#endif
     adc_digi_start();
 
 
@@ -261,20 +288,22 @@ static bool IRAM_ATTR gptimer_alarm_isr_handler(gptimer_handle_t timer, const gp
  * and sends the calculated BEMF value to the main driver via the callback.
  */
 void hal_read_and_process_bemf() {
+    uint8_t results[ADC_CONV_FRAME_SIZE];
     uint32_t ret_num = 0;
-    adc_digi_output_data_t results[ADC_CONV_FRAME_SIZE];
 
-    // Read the data from the DMA buffer. This is a non-blocking call.
-    uint8_t result = adc_digi_read_bytes((uint8_t*)&results, ADC_CONV_FRAME_SIZE, &ret_num, 0);
+#if defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32C3)
+    esp_err_t result = adc_digi_read_bytes(results, ADC_CONV_FRAME_SIZE, &ret_num, 0);
+#else
+    uint8_t result = adc_digi_read_bytes(results, ADC_CONV_FRAME_SIZE, &ret_num, 0);
+#endif
 
     if (result == ESP_OK && ret_num > 0) {
-        // Since our pattern has two channels, we process the results in pairs.
+        adc_digi_output_data_t* p_data = (adc_digi_output_data_t*)results;
         for (int i = 0; i < ret_num / sizeof(adc_digi_output_data_t); i += 2) {
-            uint16_t adc_val_a = results[i].type2.data;
-            uint16_t adc_val_b = results[i+1].type2.data;
+            uint16_t adc_val_a = p_data[i].type2.data;
+            uint16_t adc_val_b = p_data[i+1].type2.data;
 
             if (bemf_callback) {
-                // The BEMF value is the absolute difference between the two readings.
                 bemf_callback(abs(adc_val_a - adc_val_b));
             }
         }

@@ -1,163 +1,100 @@
+/**
+ * @file motor_control_hal_nrf52.cpp
+ * @brief nRF52-specific implementation for the motor control HAL.
+ */
+
 #include "motor_control_hal.h"
 
 #if defined(ARDUINO_ARCH_NRF52)
 
 #include <Arduino.h>
-#include <nRF52_PWM.h>
-#include <nrfx_saadc.h>
-#include "nrfx_timer.h"
+#include "nrfx_pwm.h"
+#include "nrfx_saadc.h"
 #include "nrfx_ppi.h"
 
-// PWM instances for motor control.
-static nRF52_PWM* pwm_a;
-static nRF52_PWM* pwm_b;
+// --- PWM Configuration ---
+static const nrfx_pwm_t pwm = NRFX_PWM_INSTANCE(0);
+static nrf_pwm_values_individual_t pwm_values;
+static nrf_pwm_sequence_t pwm_sequence;
 
-// SAADC, PPI, and Timer instances for BEMF measurement.
-#define ADC_CHANNELS_IN_USE 2
-#define SAADC_BUF_SIZE ADC_CHANNELS_IN_USE
-#define SAADC_BUF_COUNT 2
+// --- ADC Configuration ---
+static const nrfx_saadc_t saadc = NRFX_SAADC_INSTANCE(0);
+static nrf_saadc_value_t saadc_buffer[2];
 
-static nrf_saadc_value_t samples[SAADC_BUF_COUNT][SAADC_BUF_SIZE];
-static const nrfx_timer_t m_sample_timer = NRFX_TIMER_INSTANCE(1);
-static nrf_ppi_channel_t m_timer_saadc_ppi_channel;
+// --- PPI Configuration ---
+static nrf_ppi_channel_t ppi_channel;
 
-// Store pin numbers for later use.
-static uint8_t g_pwm_a_pin;
-static uint8_t g_pwm_b_pin;
-static uint8_t g_bemf_a_pin;
-static uint8_t g_bemf_b_pin;
-static hal_bemf_update_callback_t g_bemf_callback;
+// --- Static Globals ---
+static hal_bemf_update_callback_t bemf_callback = nullptr;
 
-// Desired PWM frequency in Hz.
-const float PWM_FREQUENCY = 20000.0f;
-
-// BEMF measurement interval in milliseconds.
-const uint32_t BEMF_MEASUREMENT_INTERVAL_MS = 10;
-
-// Simple function to provide an index to the next input buffer
-static uint32_t next_free_buf_index(void) {
-    static uint32_t buffer_index = -1;
-    buffer_index = (buffer_index + 1) % SAADC_BUF_COUNT;
-    return buffer_index;
-}
-
-static void saadc_event_handler(nrfx_saadc_evt_t const * p_event) {
-    ret_code_t err_code;
-    switch (p_event->type) {
-        case NRFX_SAADC_EVT_DONE:
-            if (g_bemf_callback) {
-                int differential_bemf = abs(p_event->data.done.p_buffer[0] - p_event->data.done.p_buffer[1]);
-                g_bemf_callback(differential_bemf);
-            }
-            break;
-
-        case NRFX_SAADC_EVT_BUF_REQ:
-            err_code = nrfx_saadc_buffer_set(&samples[next_free_buf_index()][0], SAADC_BUF_SIZE);
-            APP_ERROR_CHECK(err_code);
-            break;
-        default:
-            break;
+static void saadc_callback(nrfx_saadc_evt_t const * p_event) {
+    if (p_event->type == NRFX_SAADC_EVT_DONE) {
+        if (bemf_callback) {
+            bemf_callback(abs(p_event->data.done.p_buffer[0] - p_event->data.done.p_buffer[1]));
+        }
+        // Re-trigger the ADC for the next conversion
+        nrfx_saadc_buffer_convert(&saadc, saadc_buffer, 2);
     }
-}
-
-static void timer_init(void) {
-    nrfx_err_t err_code;
-    nrfx_timer_config_t timer_config = NRFX_TIMER_DEFAULT_CONFIG;
-    err_code = nrfx_timer_init(&m_sample_timer, &timer_config, NULL);
-    APP_ERROR_CHECK(err_code);
-    nrfx_timer_extended_compare(&m_sample_timer, NRF_TIMER_CC_CHANNEL0,
-                                nrfx_timer_ms_to_ticks(&m_sample_timer, BEMF_MEASUREMENT_INTERVAL_MS),
-                                NRF_TIMER_SHORT_COMPARE0_CLEAR_MASK, false);
-    nrfx_timer_resume(&m_sample_timer);
-}
-
-static void ppi_init(void) {
-    nrfx_err_t err_code = nrfx_ppi_channel_alloc(&m_timer_saadc_ppi_channel);
-    APP_ERROR_CHECK(err_code);
-    err_code = nrfx_ppi_channel_assign(m_timer_saadc_ppi_channel,
-                                       nrfx_timer_event_address_get(&m_sample_timer, NRF_TIMER_EVENT_COMPARE0),
-                                       nrf_saadc_task_address_get(NRF_SAADC_TASK_SAMPLE));
-    APP_ERROR_CHECK(err_code);
-    err_code = nrfx_ppi_channel_enable(m_timer_saadc_ppi_channel);
-    APP_ERROR_CHECK(err_code);
-}
-
-static void adc_configure(void) {
-    ret_code_t err_code;
-    nrfx_saadc_adv_config_t saadc_adv_config = NRFX_SAADC_DEFAULT_ADV_CONFIG;
-    saadc_adv_config.internal_timer_cc = 0;
-    saadc_adv_config.start_on_end = true;
-
-    err_code = nrfx_saadc_init(NRFX_SAADC_CONFIG_IRQ_PRIORITY);
-    APP_ERROR_CHECK(err_code);
-
-    static nrfx_saadc_channel_t channel_configs[ADC_CHANNELS_IN_USE];
-
-    // Configure BEMF A pin
-    nrfx_saadc_channel_t config_a = NRFX_SAADC_DEFAULT_CHANNEL_SE(g_bemf_a_pin, 0);
-    memcpy(&channel_configs[0], &config_a, sizeof(config_a));
-
-    // Configure BEMF B pin
-    nrfx_saadc_channel_t config_b = NRFX_SAADC_DEFAULT_CHANNEL_SE(g_bemf_b_pin, 1);
-    memcpy(&channel_configs[1], &config_b, sizeof(config_b));
-
-    err_code = nrfx_saadc_channels_config(channel_configs, ADC_CHANNELS_IN_USE);
-    APP_ERROR_CHECK(err_code);
-
-    err_code = nrfx_saadc_advanced_mode_set(0x03, NRF_SAADC_RESOLUTION_14BIT, &saadc_adv_config, saadc_event_handler);
-    APP_ERROR_CHECK(err_code);
-
-    err_code = nrfx_saadc_buffer_set(&samples[next_free_buf_index()][0], SAADC_BUF_SIZE);
-    APP_ERROR_CHECK(err_code);
-
-    err_code = nrfx_saadc_buffer_set(&samples[next_free_buf_index()][0], SAADC_BUF_SIZE);
-    APP_ERROR_CHECK(err_code);
-
-    err_code = nrfx_saadc_mode_trigger();
-    APP_ERROR_CHECK(err_code);
 }
 
 void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, uint8_t bemf_b_pin, hal_bemf_update_callback_t callback) {
-    g_pwm_a_pin = pwm_a_pin;
-    g_pwm_b_pin = pwm_b_pin;
-    g_bemf_a_pin = bemf_a_pin;
-    g_bemf_b_pin = bemf_b_pin;
-    g_bemf_callback = callback;
+    bemf_callback = callback;
 
-    // Create new PWM instances for each motor direction.
-    pwm_a = new nRF52_PWM(g_pwm_a_pin, PWM_FREQUENCY, 0.0f);
-    pwm_b = new nRF52_PWM(g_pwm_b_pin, PWM_FREQUENCY, 0.0f);
+    // --- PWM Initialization ---
+    nrfx_pwm_config_t pwm_config = NRFX_PWM_DEFAULT_CONFIG;
+    pwm_config.output_pins[0] = pwm_a_pin;
+    pwm_config.output_pins[1] = pwm_b_pin;
+    pwm_config.output_pins[2] = NRFX_PWM_PIN_NOT_USED;
+    pwm_config.output_pins[3] = NRFX_PWM_PIN_NOT_USED;
+    pwm_config.load_mode = NRF_PWM_LOAD_INDIVIDUAL;
+    pwm_config.top_value = 1000; // 1000 steps of resolution
+    nrfx_pwm_init(&pwm, &pwm_config, NULL);
 
-    // Initialize the PWM instances.
-    if (pwm_a) {
-        pwm_a->setPWM();
-    }
-    if (pwm_b) {
-        pwm_b->setPWM();
-    }
+    pwm_sequence.values.p_individual = &pwm_values;
+    pwm_sequence.length = NRF_PWM_VALUES_LENGTH(pwm_values);
+    pwm_sequence.repeats = 0;
+    pwm_sequence.end_delay = 0;
 
-    adc_configure();
-    ppi_init();
-    timer_init();
+    // --- SAADC Initialization ---
+    nrfx_saadc_config_t saadc_config = NRFX_SAADC_DEFAULT_CONFIG;
+    nrfx_saadc_init(&saadc, &saadc_config, saadc_callback);
+
+    nrf_saadc_channel_config_t channel_a_config = NRFX_SAADC_DEFAULT_CHANNEL_CONFIG_SE(bemf_a_pin);
+    nrfx_saadc_channel_init(&saadc, 0, &channel_a_config);
+
+    nrf_saadc_channel_config_t channel_b_config = NRFX_SAADC_DEFAULT_CHANNEL_CONFIG_SE(bemf_b_pin);
+    nrfx_saadc_channel_init(&saadc, 1, &channel_b_config);
+
+    nrfx_saadc_buffer_convert(&saadc, saadc_buffer, 2);
+
+
+    // --- PPI Initialization ---
+    uint32_t pwm_compare_event = nrfx_pwm_event_address_get(&pwm, NRF_PWM_EVENT_PWMPERIODEND);
+    uint32_t saadc_sample_task = nrfx_saadc_task_address_get(&saadc, NRF_SAADC_TASK_SAMPLE);
+
+    nrfx_ppi_channel_alloc(&ppi_channel);
+    nrfx_ppi_channel_assign(ppi_channel, pwm_compare_event, saadc_sample_task);
+    nrfx_ppi_channel_enable(ppi_channel);
+
+    // --- Start PWM ---
+    nrfx_pwm_simple_playback(&pwm, &pwm_sequence, 1, NRFX_PWM_FLAG_LOOP);
 }
 
 void hal_motor_set_pwm(int duty_cycle, bool forward) {
-    // The duty cycle is a float from 0.0 to 100.0 for the nRF52_PWM library.
-    float duty_cycle_float = map(duty_cycle, 0, 255, 0, 100);
-
+    uint16_t duty = (duty_cycle * 1000) / 255;
     if (forward) {
-        pwm_a->setPWM(g_pwm_a_pin, PWM_FREQUENCY, duty_cycle_float);
-        pwm_b->setPWM(g_pwm_b_pin, PWM_FREQUENCY, 0.0f);
+        pwm_values.channel_0 = duty;
+        pwm_values.channel_1 = 0;
     } else {
-        pwm_a->setPWM(g_pwm_a_pin, PWM_FREQUENCY, 0.0f);
-        pwm_b->setPWM(g_pwm_b_pin, PWM_FREQUENCY, duty_cycle_float);
+        pwm_values.channel_0 = 0;
+        pwm_values.channel_1 = duty;
     }
 }
 
 int hal_motor_get_bemf_buffer(volatile uint16_t** buffer, int* last_write_pos) {
-    *buffer = nullptr;
-    *last_write_pos = 0;
-    return 0;
+    *buffer = (volatile uint16_t*)saadc_buffer;
+    *last_write_pos = 0; // This is a simplified implementation
+    return 2;
 }
 
 #endif // ARDUINO_ARCH_NRF52
