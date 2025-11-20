@@ -27,8 +27,8 @@ Add a comment to each testcase
 - Summarizing the steps executed in 1-2 lines with longer sentences.
 - List the references the underlying specification / documentation to each test case.
 
-# Add the following GitHub actions:
-- Build and test the software after every push on every branch
+# CI/CD
+- Build and test the software on every push on every branch
 - Provide all firmware examples with every release as assets
 
 # Out of Scope
