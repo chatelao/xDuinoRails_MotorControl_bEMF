@@ -39,6 +39,10 @@ static hal_bemf_update_callback_t bemf_callback = nullptr;
 static uint8_t g_pwm_a_pin; // Motor PWM A pin
 static uint8_t g_pwm_b_pin; // Motor PWM B pin
 
+// Dynamic delay for ADC trigger, calculated based on duty cycle to ensure sampling during OFF phase.
+static volatile uint32_t g_adc_trigger_delay_us = BEMF_MEASUREMENT_DELAY_US;
+static volatile bool g_skip_measurement = false;
+
 // Forward Declarations
 static void dma_irq_handler();
 static int64_t delayed_adc_trigger_callback(alarm_id_t id, void *user_data);
@@ -78,8 +82,11 @@ static int64_t delayed_adc_trigger_callback(alarm_id_t id, void *user_data) {
 // This is triggered at the end of each PWM cycle.
 static void on_pwm_wrap() {
     pwm_clear_irq(motor_pwm_slice);
-    // Schedule the ADC trigger to run after the specified delay.
-    add_alarm_in_us(BEMF_MEASUREMENT_DELAY_US, delayed_adc_trigger_callback, NULL, true);
+    // Schedule the ADC trigger to run after the calculated delay.
+    // We only trigger if the delay point falls within the OFF phase of the cycle.
+    if (!g_skip_measurement) {
+        add_alarm_in_us(g_adc_trigger_delay_us, delayed_adc_trigger_callback, NULL, true);
+    }
 }
 
 //== Public HAL Function Implementations ==
@@ -140,6 +147,26 @@ void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, ui
 void hal_motor_set_pwm(int duty_cycle, bool forward) {
     // Map the 8-bit duty cycle (0-255) to the PWM counter's range.
     uint16_t level = map(duty_cycle, 0, 255, 0, PWM_WRAP_VALUE);
+
+    // Calculate timing for BEMF measurement.
+    // The PWM Wrap interrupt fires at the start of the ON phase (Counter = 0).
+    // The Falling Edge (transition to OFF phase) occurs at `level`.
+    // We want to sample after the Falling Edge + Settling Time.
+
+    // Convert settling time from microseconds to 125MHz ticks (1 us = 125 ticks).
+    uint32_t settling_ticks = BEMF_MEASUREMENT_DELAY_US * 125;
+    uint32_t trigger_tick_pos = level + settling_ticks;
+
+    // If the sampling point extends beyond the PWM period (PWM_WRAP_VALUE),
+    // it means the OFF phase is too short or non-existent (high duty cycle).
+    // In this case, we skip measurement to avoid sampling during the next ON phase.
+    if (trigger_tick_pos >= PWM_WRAP_VALUE) {
+        g_skip_measurement = true;
+    } else {
+        g_skip_measurement = false;
+        // Convert the total delay (from Wrap IRQ) back to microseconds for add_alarm_in_us.
+        g_adc_trigger_delay_us = trigger_tick_pos / 125;
+    }
 
     if (forward) {
         // For forward, PWM is applied to pin A and pin B is held low.
