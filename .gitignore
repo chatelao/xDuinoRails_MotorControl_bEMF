@@ -1,1 +1,4 @@
 .pio/
+simulation/*.raw
+simulation/*.txt
+simulation/*.png
