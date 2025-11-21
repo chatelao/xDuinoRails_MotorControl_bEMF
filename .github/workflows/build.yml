@@ -23,6 +23,8 @@ jobs:
           - seeed_xiao_samd21
           - adafruit_feather_nrf52840
           - adafruit_feather_nrf52832
+          - nucleo_g431rb
+          - nucleo_g431rb_shunt
         example:
           - SineWaveSpeed
         include:

@@ -67,4 +67,15 @@ void hal_motor_set_pwm(int duty_cycle, bool forward);
  */
 int hal_motor_get_bemf_buffer(volatile uint16_t** buffer, int* last_write_pos);
 
+/**
+ * @brief Retrieves the Current Sensing ring buffer.
+ *
+ * Optional: Only available if enabled/supported by the platform and configuration.
+ *
+ * @param[out] buffer Pointer to the uint16_t pointer that will be set to the address of the buffer.
+ * @param[out] last_write_pos Pointer to an integer that will be set to the last written position.
+ * @return The size of the ring buffer, or 0 if not supported.
+ */
+int hal_motor_get_current_buffer(volatile uint16_t** buffer, int* last_write_pos);
+
 #endif // MOTOR_CONTROL_HAL_H
