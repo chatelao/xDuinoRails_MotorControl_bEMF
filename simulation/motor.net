@@ -1,0 +1,53 @@
+* Brushed DC Motor Simulation
+* Compatible with LTSpice and Ngspice
+* 50% PWM at 20V
+
+.param Vsupply=20
+.param Duty=0.5
+.param Freq=20k
+.param Period={1/Freq}
+.param Ton={Period*Duty}
+
+* PWM Input (Voltage Source)
+Vpwm 1 0 PULSE(0 {Vsupply} 0 10n 10n {Ton} {Period})
+
+* Motor Electrical Model
+* R = 12 Ohm, L = 2 mH
+Rarm 1 2 12
+Larm 2 3 2m
+
+* Current Sense (Zero volt source)
+Vsense 3 4 0
+
+* Back EMF (Voltage Controlled Voltage Source)
+* V_bemf = Ke * Omega
+* Ke = 0.01 V/(rad/s)
+Ebemf 4 0 VALUE = {0.01 * V(omega)}
+
+* Motor Mechanical Model
+* Analogy: Voltage=Velocity, Current=Torque
+* Torque Source (Current Controlled Current Source)
+* Torque = Kt * I_motor
+* Kt = 0.01 N*m/A
+Gtorque 0 omega VALUE = {0.01 * I(Vsense)}
+
+* Inertia (Capacitor)
+* J = 1e-6 kg*m^2
+Cinertia omega 0 1u
+
+* Friction (Resistor)
+* B = 1e-5 N*m*s/rad
+* R = 1/B = 100k
+Rfrict omega 0 100k
+
+* Transient Analysis: 1us step, 5ms total
+.tran 1u 5ms
+
+* Control block for Ngspice (Ignored by LTSpice)
+.control
+run
+set filetype=ascii
+write simulation_result.txt I(Vsense) V(1) V(omega)
+.endc
+
+.end

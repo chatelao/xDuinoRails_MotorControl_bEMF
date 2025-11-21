@@ -87,10 +87,36 @@ jobs:
           name: ${{ matrix.platform }}-${{ matrix.example }}-firmware
           path: ${{ steps.rename.outputs.firmware_glob }}
 
+  simulation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ngspice
+          pip install matplotlib numpy
+
+      - name: Run Simulation
+        run: python simulation/run_sim.py
+
+      - name: Upload Simulation Graph
+        uses: actions/upload-artifact@v4
+        with:
+          name: simulation-graph
+          path: simulation/simulation_result.png
+
   release:
     runs-on: ubuntu-latest
     if: github.event_name == 'release'
-    needs: build
+    needs: [build, simulation]
     permissions:
       contents: write
 
