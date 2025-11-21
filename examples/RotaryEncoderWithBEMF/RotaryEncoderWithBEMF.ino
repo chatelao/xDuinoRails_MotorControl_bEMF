@@ -125,6 +125,7 @@ void setup() {
   // Initialize Neopixel for LED_EDITION
   pinMode(NEOPIXEL_POWER_PIN, OUTPUT);
   digitalWrite(NEOPIXEL_POWER_PIN, HIGH);
+  delay(10); // Wait for power to stabilize
   pixels.begin();
   pixels.setPixelColor(0, pixels.Color(255, 0, 0)); // Red for stop
   pixels.show();
