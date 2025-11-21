@@ -18,8 +18,17 @@
 #include "motor_control_hal.h"
 #include "StatusLED.h"
 
+#if defined(ARDUINO_SEEED_XIAO_RP2040)
+#include <Adafruit_NeoPixel.h>
+#endif
+
 // --- Pin Definitions ---
 #if defined(ARDUINO_SEEED_XIAO_RP2040)
+    const int NEOPIXEL_PIN          = 12;
+    const int NEOPIXEL_POWER_PIN    = 11;
+    const int NUM_PIXELS            = 1;
+    Adafruit_NeoPixel pixels(NUM_PIXELS, NEOPIXEL_PIN, NEO_GRB + NEO_KHZ800);
+
     #ifdef LED_EDITION
         // For Seeed XIAO RP2040 "LED Edition"
         const int MOTOR_PWM_A_PIN       = 17; // Red LED
@@ -65,6 +74,14 @@ void setup() {
   // Initialize the status LED.
   status_led.begin();
   status_led.on();
+
+#if defined(ARDUINO_SEEED_XIAO_RP2040)
+  // Initialize Neopixel
+  pinMode(NEOPIXEL_POWER_PIN, OUTPUT);
+  digitalWrite(NEOPIXEL_POWER_PIN, HIGH);
+  pixels.begin();
+  pixels.setBrightness(50);
+#endif
 }
 
 void loop() {
@@ -82,6 +99,15 @@ void loop() {
 
   // Update the status LED.
   status_led.update();
+
+#if defined(ARDUINO_SEEED_XIAO_RP2040)
+  if (motorDirection) {
+    pixels.setPixelColor(0, pixels.Color(0, 255, 0)); // Green for Forward
+  } else {
+    pixels.setPixelColor(0, pixels.Color(255, 0, 0)); // Red for Backward
+  }
+  pixels.show();
+#endif
 
   // Print the current PWM value for debugging.
   Serial.print("PWM: ");
