@@ -2,3 +2,5 @@
 simulation/*.raw
 simulation/*.txt
 simulation/*.png
+rust/target/
+rust/output/
