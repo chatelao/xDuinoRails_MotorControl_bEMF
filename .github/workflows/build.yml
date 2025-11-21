@@ -89,6 +89,37 @@ jobs:
           name: ${{ matrix.platform }}-${{ matrix.example }}-firmware
           path: ${{ steps.rename.outputs.firmware_glob }}
 
+  build-rust:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust Target
+        run: rustup target add thumbv7em-none-eabihf
+
+      - name: Build Rust Firmware
+        working-directory: rust
+        run: cargo build --release
+
+      - name: Install objcopy
+        run: sudo apt-get update && sudo apt-get install -y binutils-arm-none-eabi
+
+      - name: Prepare Artifacts
+        working-directory: rust
+        run: |
+          mkdir -p output
+          # Copy ELF
+          cp target/thumbv7em-none-eabihf/release/sine_wave_controller output/xDuinoRails_MotorControl_bEMF-SineWaveSpeed-nucleo_g431rb_rust.elf
+          # Create BIN
+          arm-none-eabi-objcopy -O binary target/thumbv7em-none-eabihf/release/sine_wave_controller output/xDuinoRails_MotorControl_bEMF-SineWaveSpeed-nucleo_g431rb_rust.bin
+
+      - name: Upload Rust artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-firmware
+          path: rust/output/*
+
   simulation:
     runs-on: ubuntu-latest
     steps:
@@ -118,7 +149,7 @@ jobs:
   release:
     runs-on: ubuntu-latest
     if: github.event_name == 'release'
-    needs: [build, simulation]
+    needs: [build, simulation, build-rust]
     permissions:
       contents: write
 
