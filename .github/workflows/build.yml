@@ -73,6 +73,8 @@ jobs:
             SUFFIX="_led"
           elif [[ "${{ matrix.platform }}" == "seeed_xiao_rp2040" ]]; then
             EXTENSION="uf2"
+          elif [[ "${{ matrix.platform }}" == "uno" ]]; then
+            EXTENSION="hex"
           elif [[ "${{ matrix.platform }}" == *"nrf52"* ]]; then
              if [ -f "${BUILD_DIR}/firmware.zip" ]; then
                 EXTENSION="zip"
