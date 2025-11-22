@@ -168,6 +168,24 @@ void hal_motor_set_pwm(int duty_cycle, bool forward) {
         g_adc_trigger_delay_us = trigger_tick_pos / 125;
     }
 
+#ifdef LED_EDITION
+    // For Active Low LEDs (Seeed XIAO RP2040 LED Edition), logic is inverted.
+    // High (PWM_WRAP_VALUE) = LED OFF.
+    // Low (0) = LED ON (Full Brightness).
+    // level is the ON time (Low time).
+    // Standard PWM: level = High time.
+    // To get 'level' amount of ON time (Low), we want High time = PWM_WRAP_VALUE - level.
+    uint16_t inverted_level = PWM_WRAP_VALUE - level;
+    uint16_t off_level = PWM_WRAP_VALUE; // Always High = Always OFF
+
+    if (forward) {
+        pwm_set_gpio_level(g_pwm_a_pin, inverted_level);
+        pwm_set_gpio_level(g_pwm_b_pin, off_level);
+    } else {
+        pwm_set_gpio_level(g_pwm_a_pin, off_level);
+        pwm_set_gpio_level(g_pwm_b_pin, inverted_level);
+    }
+#else
     if (forward) {
         // For forward, PWM is applied to pin A and pin B is held low.
         pwm_set_gpio_level(g_pwm_a_pin, level);
@@ -177,6 +195,7 @@ void hal_motor_set_pwm(int duty_cycle, bool forward) {
         pwm_set_gpio_level(g_pwm_a_pin, 0);
         pwm_set_gpio_level(g_pwm_b_pin, level);
     }
+#endif
 }
 
 int hal_motor_get_bemf_buffer(volatile uint16_t** buffer, int* last_write_pos) {
