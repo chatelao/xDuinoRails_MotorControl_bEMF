@@ -18,6 +18,10 @@
 #include "motor_control_hal.h"
 #include "StatusLED.h"
 
+#ifdef LED_EDITION
+#include <Adafruit_NeoPixel.h>
+#endif
+
 // --- Pin Definitions ---
 #if defined(ARDUINO_SEEED_XIAO_RP2040)
     #ifdef LED_EDITION
@@ -26,6 +30,11 @@
         const int MOTOR_PWM_B_PIN       = 16; // Green LED
         const int MOTOR_BEMF_A_PIN      = D7;
         const int MOTOR_BEMF_B_PIN      = D8;
+
+        // --- Neopixel LED for LED_EDITION ---
+        #define NEOPIXEL_PIN 12
+        #define NEOPIXEL_POWER_PIN 11
+        Adafruit_NeoPixel pixels(1, NEOPIXEL_PIN, NEO_GRB + NEO_KHZ800);
     #else
         // For standard Seeed XIAO RP2040
         const int MOTOR_PWM_A_PIN       =  D9;
@@ -65,6 +74,16 @@ void setup() {
   // Initialize the status LED.
   status_led.begin();
   status_led.on();
+
+#ifdef LED_EDITION
+  // Initialize Neopixel for LED_EDITION
+  pinMode(NEOPIXEL_POWER_PIN, OUTPUT);
+  digitalWrite(NEOPIXEL_POWER_PIN, HIGH);
+  delay(10); // Wait for power to stabilize
+  pixels.begin();
+  pixels.setPixelColor(0, pixels.Color(0, 0, 255)); // Blue to indicate SineWave mode
+  pixels.show();
+#endif
 }
 
 void loop() {

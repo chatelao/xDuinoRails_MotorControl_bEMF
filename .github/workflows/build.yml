@@ -59,7 +59,10 @@ jobs:
       - name: Rename Firmware and Set Path
         id: rename
         run: |
+          VERSION="${{ github.ref_name }}"
+          SAFE_VERSION=$(echo "$VERSION" | tr '/' '-')
           FIRMWARE_BASENAME="xDuinoRails_MotorControl_bEMF-"
+          FIRMWARE_BASENAME="${FIRMWARE_BASENAME}${SAFE_VERSION}-"
           FIRMWARE_BASENAME="${FIRMWARE_BASENAME}${{ matrix.example }}-"
           FIRMWARE_BASENAME="${FIRMWARE_BASENAME}${{ matrix.platform }}"
           BUILD_DIR=".pio/build/${{ matrix.platform }}"
@@ -69,7 +72,6 @@ jobs:
 
           if [[ "${{ matrix.platform }}" == "seeed_xiao_rp2040_led" ]]; then
             EXTENSION="uf2"
-            SUFFIX="_led"
           elif [[ "${{ matrix.platform }}" == "seeed_xiao_rp2040" ]]; then
             EXTENSION="uf2"
           elif [[ "${{ matrix.platform }}" == *"nrf52"* ]]; then
@@ -108,11 +110,13 @@ jobs:
       - name: Prepare Artifacts
         working-directory: rust
         run: |
+          VERSION="${{ github.ref_name }}"
+          SAFE_VERSION=$(echo "$VERSION" | tr '/' '-')
           mkdir -p output
           # Copy ELF
-          cp target/thumbv7em-none-eabihf/release/sine_wave_controller output/xDuinoRails_MotorControl_bEMF-SineWaveSpeed-nucleo_g431rb_rust.elf
+          cp target/thumbv7em-none-eabihf/release/sine_wave_controller output/xDuinoRails_MotorControl_bEMF-${SAFE_VERSION}-SineWaveSpeed-nucleo_g431rb_rust.elf
           # Create BIN
-          arm-none-eabi-objcopy -O binary target/thumbv7em-none-eabihf/release/sine_wave_controller output/xDuinoRails_MotorControl_bEMF-SineWaveSpeed-nucleo_g431rb_rust.bin
+          arm-none-eabi-objcopy -O binary target/thumbv7em-none-eabihf/release/sine_wave_controller output/xDuinoRails_MotorControl_bEMF-${SAFE_VERSION}-SineWaveSpeed-nucleo_g431rb_rust.bin
 
       - name: Upload Rust artifact
         uses: actions/upload-artifact@v4
