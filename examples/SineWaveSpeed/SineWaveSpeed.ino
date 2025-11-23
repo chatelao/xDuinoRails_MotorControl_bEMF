@@ -3,14 +3,14 @@
  * @brief An example of varying motor speed in a sine wave pattern.
  *
  * This sketch demonstrates how to control the motor's speed to follow a sine
- * wave, varying between 25% and 75% of its maximum speed over a period of 2.5
+ * wave, varying between 0% and 75% of its maximum speed over a period of 2.5
  * seconds.
  *
  * ## How it Works
  * - The motor speed is modulated using a sine function.
- * - The sine wave is scaled to have a minimum of 25% and a maximum of 75% duty
+ * - The sine wave is scaled to have a minimum of 0% and a maximum of 75% duty
  *   cycle.
- * - One full cycle of the sine wave (from 25% up to 75% and back to 25%) is
+ * - One full cycle of the sine wave (from 0% up to 75% and back to 0%) is
  *   completed every 2.5 seconds.
  */
 
@@ -57,7 +57,7 @@ StatusLED status_led(STATUS_LED_PIN);
 
 // --- Sine Wave Parameters ---
 const float SINE_WAVE_PERIOD    = 2500; // 2.5 seconds in milliseconds
-const int MIN_PWM_DUTY_CYCLE    =   64;   // 25% of 255
+const int MIN_PWM_DUTY_CYCLE    =    0;   // 0% of 255
 const int MAX_PWM_DUTY_CYCLE    =  191;  // 75% of 255
 bool motorDirection             = true;   // Motor direction: true for forward
 
