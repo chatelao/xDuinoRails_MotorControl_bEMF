@@ -18,23 +18,23 @@
 #include "motor_control_hal.h"
 #include "StatusLED.h"
 
-#ifdef LED_EDITION
+#if defined(ARDUINO_SEEED_XIAO_RP2040)
 #include <Adafruit_NeoPixel.h>
 #endif
 
 // --- Pin Definitions ---
 #if defined(ARDUINO_SEEED_XIAO_RP2040)
+    // --- Neopixel LED ---
+    #define NEOPIXEL_PIN 12
+    #define NEOPIXEL_POWER_PIN 11
+    Adafruit_NeoPixel pixels(1, NEOPIXEL_PIN, NEO_GRB + NEO_KHZ800);
+
     #ifdef LED_EDITION
         // For Seeed XIAO RP2040 "LED Edition"
         const int MOTOR_PWM_A_PIN       = 17; // Red LED
         const int MOTOR_PWM_B_PIN       = 16; // Green LED
         const int MOTOR_BEMF_A_PIN      = D7;
         const int MOTOR_BEMF_B_PIN      = D8;
-
-        // --- Neopixel LED for LED_EDITION ---
-        #define NEOPIXEL_PIN 12
-        #define NEOPIXEL_POWER_PIN 11
-        Adafruit_NeoPixel pixels(1, NEOPIXEL_PIN, NEO_GRB + NEO_KHZ800);
     #else
         // For standard Seeed XIAO RP2040
         const int MOTOR_PWM_A_PIN       =  D9;
@@ -75,8 +75,8 @@ void setup() {
   status_led.begin();
   status_led.on();
 
-#ifdef LED_EDITION
-  // Initialize Neopixel for LED_EDITION
+#if defined(ARDUINO_SEEED_XIAO_RP2040)
+  // Initialize Neopixel
   pinMode(NEOPIXEL_POWER_PIN, OUTPUT);
   digitalWrite(NEOPIXEL_POWER_PIN, HIGH);
   delay(10); // Wait for power to stabilize
@@ -98,6 +98,16 @@ void loop() {
 
   // Set the motor PWM.
   hal_motor_set_pwm(pwmValue, motorDirection);
+
+#if defined(ARDUINO_SEEED_XIAO_RP2040)
+  // Indicate motor direction with color (Green for Forward, Red for Backward)
+  if (motorDirection) {
+    pixels.setPixelColor(0, pixels.Color(0, 255, 0));
+  } else {
+    pixels.setPixelColor(0, pixels.Color(255, 0, 0));
+  }
+  pixels.show();
+#endif
 
   // Update the status LED.
   status_led.update();
