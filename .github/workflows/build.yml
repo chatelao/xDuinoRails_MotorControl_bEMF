@@ -37,6 +37,8 @@ jobs:
             example: RotaryEncoderWithBEMF
           - platform: seeed_xiao_rp2040_led
             example: RotaryEncoderWithBEMF
+          - platform: seeed_xiao_rp2040_led
+            example: MotorSerialDebug
 
     steps:
       - name: Checkout repository
