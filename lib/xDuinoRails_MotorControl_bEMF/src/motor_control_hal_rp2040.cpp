@@ -20,15 +20,9 @@
 
 //== Hardware PWM & BEMF Measurement Parameters ==
 
-// PWM frequency for the motor driver, 25kHz is high enough to be inaudible.
-const uint PWM_FREQUENCY_HZ = 25000;
 // PWM counter wrap value, calculated from the 125MHz system clock.
 // Formula: (SystemClock / PWM_Frequency) - 1. This value determines the PWM resolution.
-static uint16_t PWM_WRAP_VALUE = (125000000 / PWM_FREQUENCY_HZ) - 1;
-// Delay after the PWM cycle before triggering ADC, allows the motor coils' magnetic field to collapse.
-const uint BEMF_MEASUREMENT_DELAY_US = 10;
-// Ring buffer size for ADC samples. Must be a power of 2 for DMA efficiency.
-const uint BEMF_RING_BUFFER_SIZE = 64;
+static uint32_t PWM_WRAP_VALUE = (125000000 / PWM_FREQUENCY_HZ) - 1;
 
 //== Static Globals for Hardware Control ==
 static uint dma_channel;     // DMA channel for ADC->memory transfers

@@ -11,6 +11,14 @@
 
 #include <cstdint>
 
+// PWM frequency for the motor driver
+const uint32_t PWM_FREQUENCY_HZ = 2;
+
+// Delay after the PWM cycle before triggering ADC, allows the motor coils' magnetic field to collapse.
+const uint32_t BEMF_MEASUREMENT_DELAY_US = 10;
+// Ring buffer size for ADC samples. Must be a power of 2 for DMA efficiency on some platforms.
+const uint32_t BEMF_RING_BUFFER_SIZE = 64;
+
 /**
  * @brief Callback function pointer type for BEMF updates.
  *
