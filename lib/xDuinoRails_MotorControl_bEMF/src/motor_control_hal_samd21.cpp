@@ -14,7 +14,7 @@
 #include <Arduino.h>
 
 //== Hardware Timer & BEMF Measurement Parameters ==
-const uint PWM_FREQUENCY_HZ = 25000;
+const uint PWM_FREQUENCY_HZ = 2;
 const uint BEMF_MEASUREMENT_DELAY_US = 10;
 const uint BEMF_RING_BUFFER_SIZE = 64;
 

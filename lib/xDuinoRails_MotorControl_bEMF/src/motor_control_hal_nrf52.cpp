@@ -47,7 +47,9 @@ void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, ui
     pwm_config.output_pins[2] = NRFX_PWM_PIN_NOT_USED;
     pwm_config.output_pins[3] = NRFX_PWM_PIN_NOT_USED;
     pwm_config.load_mode = NRF_PWM_LOAD_INDIVIDUAL;
-    pwm_config.top_value = 1000; // 1000 steps of resolution
+    // Set frequency to 2Hz: 16MHz / (DIV_128 * 62500) = 2Hz
+    pwm_config.prescaler = NRF_PWM_PRESCALER_DIV_128;
+    pwm_config.top_value = 62500;
     nrfx_pwm_init(&pwm, &pwm_config, NULL);
 
     pwm_sequence.values.p_individual = &pwm_values;
@@ -81,7 +83,7 @@ void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, ui
 }
 
 void hal_motor_set_pwm(int duty_cycle, bool forward) {
-    uint16_t duty = (duty_cycle * 1000) / 255;
+    uint16_t duty = map(duty_cycle, 0, 255, 0, 62500);
     if (forward) {
         pwm_values.channel_0 = duty;
         pwm_values.channel_1 = 0;
