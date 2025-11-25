@@ -73,7 +73,7 @@ void setup() {
 
   // Initialize the status LED.
   status_led.begin();
-  status_led.on();
+  status_led.blink(500); // Blink at 2 Hz (500 ms period)
 
 #if defined(ARDUINO_SEEED_XIAO_RP2040)
   // Initialize Neopixel
