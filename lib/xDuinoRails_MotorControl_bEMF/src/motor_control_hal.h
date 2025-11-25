@@ -11,6 +11,9 @@
 
 #include <cstdint>
 
+// PWM frequency for the motor driver
+const uint32_t PWM_FREQUENCY_HZ = 2;
+
 /**
  * @brief Callback function pointer type for BEMF updates.
  *

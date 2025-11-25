@@ -24,8 +24,6 @@
 #include "hal/dma_types.h"
 #include "soc/i2s_struct.h"
 
-// PWM frequency for the motor driver
-const uint32_t PWM_FREQUENCY_HZ = 25000;
 // Timer resolution for PWM
 const uint32_t PWM_TIMER_RESOLUTION_HZ = 10 * 1000 * 1000; // 10 MHz
 // BEMF measurement cooldown delay
