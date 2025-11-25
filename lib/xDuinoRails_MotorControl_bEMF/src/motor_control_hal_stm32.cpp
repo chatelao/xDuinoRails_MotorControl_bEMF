@@ -4,9 +4,6 @@
 
 #include <Arduino.h>
 
-// BEMF Measurement Parameters
-const uint BEMF_RING_BUFFER_SIZE = 64;
-
 // Static Globals
 static hal_bemf_update_callback_t bemf_callback = nullptr;
 static uint8_t g_bemf_a_pin;
@@ -90,7 +87,7 @@ void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, ui
     pwm_timer->setMode(pwm_channel_a, TIMER_OUTPUT_COMPARE_PWM1, g_pwm_a_pin);
     pwm_timer->setMode(pwm_channel_b, TIMER_OUTPUT_COMPARE_PWM1, g_pwm_b_pin);
 
-    pwm_timer->setOverflow(25000, HERTZ_FORMAT);
+    pwm_timer->setOverflow(PWM_FREQUENCY_HZ, HERTZ_FORMAT);
 
 #if defined(STM32G4)
     // --- G4 Specific Setup ---

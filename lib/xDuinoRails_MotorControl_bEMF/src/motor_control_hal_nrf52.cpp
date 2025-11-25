@@ -26,6 +26,7 @@ static nrf_ppi_channel_t ppi_channel;
 
 // --- Static Globals ---
 static hal_bemf_update_callback_t bemf_callback = nullptr;
+static uint16_t top_value;
 
 static void saadc_callback(nrfx_saadc_evt_t const * p_event) {
     if (p_event->type == NRFX_SAADC_EVT_DONE) {
@@ -47,7 +48,28 @@ void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, ui
     pwm_config.output_pins[2] = NRFX_PWM_PIN_NOT_USED;
     pwm_config.output_pins[3] = NRFX_PWM_PIN_NOT_USED;
     pwm_config.load_mode = NRF_PWM_LOAD_INDIVIDUAL;
-    pwm_config.top_value = 1000; // 1000 steps of resolution
+
+    // --- Dynamic Frequency Calculation ---
+    // The nRF52 PWM frequency is determined by: F_pwm = 16MHz / (prescaler * top_value)
+    // We iterate through the available prescalers to find one that allows for a
+    // top_value within the 16-bit range.
+    const uint32_t base_clock = 16000000;
+    nrf_pwm_clk_t prescalers[] = {
+        NRF_PWM_CLK_16MHz, NRF_PWM_CLK_8MHz, NRF_PWM_CLK_4MHz, NRF_PWM_CLK_2MHz,
+        NRF_PWM_CLK_1MHz, NRF_PWM_CLK_500kHz, NRF_PWM_CLK_250kHz, NRF_PWM_CLK_125kHz
+    };
+    uint32_t prescaler_divs[] = {1, 2, 4, 8, 16, 32, 64, 128};
+
+    for (size_t i = 0; i < sizeof(prescalers) / sizeof(prescalers[0]); ++i) {
+        uint32_t required_top = base_clock / (prescaler_divs[i] * PWM_FREQUENCY_HZ);
+        if (required_top <= 65535) {
+            pwm_config.prescaler = (nrf_pwm_prescaler_t)i;
+            top_value = required_top;
+            break;
+        }
+    }
+    pwm_config.top_value = top_value;
+
     nrfx_pwm_init(&pwm, &pwm_config, NULL);
 
     pwm_sequence.values.p_individual = &pwm_values;
@@ -81,7 +103,7 @@ void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, ui
 }
 
 void hal_motor_set_pwm(int duty_cycle, bool forward) {
-    uint16_t duty = (duty_cycle * 1000) / 255;
+    uint16_t duty = map(duty_cycle, 0, 255, 0, top_value);
     if (forward) {
         pwm_values.channel_0 = duty;
         pwm_values.channel_1 = 0;
