@@ -53,14 +53,14 @@ Cinertia omega 0 1u
 * R = 1/B = 100k
 Rfrict omega 0 100k
 
-* Transient Analysis: 1us step, 500us total (10 PWM cycles at 20kHz)
-.tran 1u 500us
+* Transient Analysis: 1ms step, 1s total
+.tran 1ms 1s
 
 * Control block for Ngspice (Ignored by LTSpice)
 .control
 run
 set filetype=ascii
-write simulation_result.txt I(Vsense) V(1) V(omega) V(4) V(5)
+write simulation_1s_result.txt I(Vsense) V(1) V(omega) V(4) V(5)
 .endc
 
 .end
