@@ -22,7 +22,7 @@ Vsense 3 4 0
 * Back EMF (Voltage Controlled Voltage Source)
 * V_bemf = Ke * Omega
 * Ke = 0.01 V/(rad/s)
-* 3-sector commutation ripple: Modulate by (1 + 0.1 * sin(3 * theta))
+* 3-sector commutation ripple: Modulate by (1 + 0.1 * sin(3 * V(theta)))
 Ebemf 4 5 VALUE = {0.01 * V(omega) * (1 + 0.1 * sin(3 * V(theta)))}
 
 * Shunt Resistor
@@ -53,14 +53,14 @@ Cinertia omega 0 1u
 * R = 1/B = 100k
 Rfrict omega 0 100k
 
-* Transient Analysis: 1us step, 5ms total
-.tran 1u 5ms
+* Transient Analysis: 1us step, 500us total (10 PWM cycles at 20kHz)
+.tran 1u 500us
 
 * Control block for Ngspice (Ignored by LTSpice)
 .control
 run
 set filetype=ascii
-write simulation_result.txt I(Vsense) V(1) V(omega)
+write simulation_result.txt I(Vsense) V(1) V(omega) V(4) V(5)
 .endc
 
 .end
