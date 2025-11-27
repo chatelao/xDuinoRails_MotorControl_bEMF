@@ -22,14 +22,27 @@ Vsense 3 4 0
 * Back EMF (Voltage Controlled Voltage Source)
 * V_bemf = Ke * Omega
 * Ke = 0.01 V/(rad/s)
-Ebemf 4 0 VALUE = {0.01 * V(omega)}
+* 3-sector commutation ripple: Modulate by (1 + 0.1 * sin(3 * theta))
+Ebemf 4 5 VALUE = {0.01 * V(omega) * (1 + 0.1 * sin(3 * V(theta)))}
+
+* Shunt Resistor
+Rshunt 5 0 0.1
 
 * Motor Mechanical Model
 * Analogy: Voltage=Velocity, Current=Torque
 * Torque Source (Current Controlled Current Source)
 * Torque = Kt * I_motor
 * Kt = 0.01 N*m/A
-Gtorque 0 omega VALUE = {0.01 * I(Vsense)}
+* 3-sector commutation ripple: Modulate by (1 + 0.1 * sin(3 * theta))
+Gtorque 0 omega VALUE = {0.01 * I(Vsense) * (1 + 0.1 * sin(3 * V(theta)))}
+
+* Rotor Angle Integration
+* theta = integral(omega)
+* C = 1, I = V(omega) -> V(theta) = integral(V(omega))
+Cangle theta 0 1
+Gangle 0 theta VALUE = {V(omega)}
+* Add a large resistor to prevent floating node issues (optional but good practice)
+Rangle theta 0 1G
 
 * Inertia (Capacitor)
 * J = 1e-6 kg*m^2
