@@ -63,10 +63,12 @@ static mcpwm_cmpr_handle_t comparator_b = nullptr;
 static mcpwm_oper_handle_t oper = nullptr;
 static mcpwm_timer_handle_t timer = nullptr;
 static gptimer_handle_t gptimer = nullptr;
+static uint32_t g_pwm_frequency_hz = 0;
 
 void hal_read_and_process_bemf();
 
-void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, uint8_t bemf_b_pin, hal_bemf_update_callback_t callback) {
+void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, uint8_t bemf_b_pin, hal_bemf_update_callback_t callback, uint32_t pwm_frequency_hz) {
+    g_pwm_frequency_hz = pwm_frequency_hz;
     g_pwm_a_pin = pwm_a_pin;
     g_pwm_b_pin = pwm_b_pin;
     g_bemf_a_pin = bemf_a_pin;
@@ -81,7 +83,7 @@ void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, ui
         .clk_src = MCPWM_TIMER_CLK_SRC_DEFAULT,
         .resolution_hz = PWM_TIMER_RESOLUTION_HZ,
         .count_mode = MCPWM_TIMER_COUNT_MODE_UP,
-        .period_ticks = PWM_TIMER_RESOLUTION_HZ / PWM_FREQUENCY_HZ,
+        .period_ticks = PWM_TIMER_RESOLUTION_HZ / g_pwm_frequency_hz,
     };
     mcpwm_new_timer(&timer_config, &timer);
 
@@ -338,7 +340,7 @@ int hal_motor_get_bemf_buffer(volatile uint16_t** buffer, int* last_write_pos) {
 }
 
 void hal_motor_set_pwm(int duty_cycle, bool forward) {
-    uint32_t duty_ticks = (PWM_TIMER_RESOLUTION_HZ / PWM_FREQUENCY_HZ) * (duty_cycle / 255.0f);
+    uint32_t duty_ticks = (PWM_TIMER_RESOLUTION_HZ / g_pwm_frequency_hz) * (duty_cycle / 255.0f);
 
     if (forward) {
         mcpwm_comparator_set_compare_value(comparator_a, duty_ticks);

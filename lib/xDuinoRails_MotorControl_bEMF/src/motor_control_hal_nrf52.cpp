@@ -38,7 +38,7 @@ static void saadc_callback(nrfx_saadc_evt_t const * p_event) {
     }
 }
 
-void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, uint8_t bemf_b_pin, hal_bemf_update_callback_t callback) {
+void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, uint8_t bemf_b_pin, hal_bemf_update_callback_t callback, uint32_t pwm_frequency_hz) {
     bemf_callback = callback;
 
     // --- PWM Initialization ---
@@ -61,7 +61,7 @@ void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, ui
     uint32_t prescaler_divs[] = {1, 2, 4, 8, 16, 32, 64, 128};
 
     for (size_t i = 0; i < sizeof(prescalers) / sizeof(prescalers[0]); ++i) {
-        uint32_t required_top = base_clock / (prescaler_divs[i] * PWM_FREQUENCY_HZ);
+        uint32_t required_top = base_clock / (prescaler_divs[i] * pwm_frequency_hz);
         if (required_top <= 65535) {
             pwm_config.prescaler = (nrf_pwm_prescaler_t)i;
             top_value = required_top;

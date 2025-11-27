@@ -56,7 +56,7 @@ const int STATUS_LED_PIN        = LED_BUILTIN;
 StatusLED status_led(STATUS_LED_PIN);
 
 // --- Sine Wave Parameters ---
-const float SINE_WAVE_PERIOD    = 2500; // 2.5 seconds in milliseconds
+const float SINE_WAVE_PERIOD    = 3000; // 3.0 seconds in milliseconds
 const int MIN_PWM_DUTY_CYCLE    =    0;   // 0% of 255
 const int MAX_PWM_DUTY_CYCLE    =  191;  // 75% of 255
 bool motorDirection             = true;   // Motor direction: true for forward
@@ -69,7 +69,7 @@ void setup() {
   Serial.println("Sine Wave Motor Speed Control Example");
 
   // Initialize the motor hardware abstraction layer.
-  hal_motor_init(MOTOR_PWM_A_PIN, MOTOR_PWM_B_PIN, MOTOR_BEMF_A_PIN, MOTOR_BEMF_B_PIN, NULL);
+  hal_motor_init(MOTOR_PWM_A_PIN, MOTOR_PWM_B_PIN, MOTOR_BEMF_A_PIN, MOTOR_BEMF_B_PIN, NULL, 3);
 
   // Initialize the status LED.
   status_led.begin();

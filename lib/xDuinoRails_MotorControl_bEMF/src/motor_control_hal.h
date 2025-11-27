@@ -11,9 +11,6 @@
 
 #include <cstdint>
 
-// PWM frequency for the motor driver
-const uint32_t PWM_FREQUENCY_HZ = 2;
-
 // Delay after the PWM cycle before triggering ADC, allows the motor coils' magnetic field to collapse.
 const uint32_t BEMF_MEASUREMENT_DELAY_US = 10;
 // Ring buffer size for ADC samples. Must be a power of 2 for DMA efficiency on some platforms.
@@ -45,8 +42,9 @@ typedef void (*hal_bemf_update_callback_t)(int raw_bemf_value);
  * @param bemf_b_pin The GPIO pin number for ADC input connected to motor terminal B.
  * @param callback A pointer to a function that will be called from an interrupt
  *                 context with new BEMF data.
+ * @param pwm_frequency_hz The desired PWM frequency in Hertz. Defaults to 20kHz.
  */
-void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, uint8_t bemf_b_pin, hal_bemf_update_callback_t callback);
+void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, uint8_t bemf_b_pin, hal_bemf_update_callback_t callback, uint32_t pwm_frequency_hz = 20000);
 
 /**
  * @brief Sets the motor's PWM duty cycle and direction.

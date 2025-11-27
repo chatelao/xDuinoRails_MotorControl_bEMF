@@ -70,7 +70,7 @@ void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef* hadc) {
     process_bemf_data(bemf_ring_buffer, BEMF_RING_BUFFER_SIZE / 2);
 }
 
-void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, uint8_t bemf_b_pin, hal_bemf_update_callback_t callback) {
+void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, uint8_t bemf_b_pin, hal_bemf_update_callback_t callback, uint32_t pwm_frequency_hz) {
     g_pwm_a_pin = pwm_a_pin;
     g_pwm_b_pin = pwm_b_pin;
     g_bemf_a_pin = bemf_a_pin;
@@ -87,7 +87,7 @@ void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, ui
     pwm_timer->setMode(pwm_channel_a, TIMER_OUTPUT_COMPARE_PWM1, g_pwm_a_pin);
     pwm_timer->setMode(pwm_channel_b, TIMER_OUTPUT_COMPARE_PWM1, g_pwm_b_pin);
 
-    pwm_timer->setOverflow(PWM_FREQUENCY_HZ, HERTZ_FORMAT);
+    pwm_timer->setOverflow(pwm_frequency_hz, HERTZ_FORMAT);
 
 #if defined(STM32G4)
     // --- G4 Specific Setup ---

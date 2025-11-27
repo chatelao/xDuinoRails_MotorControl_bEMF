@@ -20,9 +20,7 @@
 
 //== Hardware PWM & BEMF Measurement Parameters ==
 
-// PWM counter wrap value, calculated from the 125MHz system clock.
-// Formula: (SystemClock / PWM_Frequency) - 1. This value determines the PWM resolution.
-static uint32_t PWM_WRAP_VALUE = (125000000 / PWM_FREQUENCY_HZ) - 1;
+static uint32_t g_pwm_wrap_value = 0;
 
 //== Static Globals for Hardware Control ==
 static uint dma_channel;     // DMA channel for ADC->memory transfers
@@ -85,7 +83,8 @@ static void on_pwm_wrap() {
 
 //== Public HAL Function Implementations ==
 
-void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, uint8_t bemf_b_pin, hal_bemf_update_callback_t callback) {
+void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, uint8_t bemf_b_pin, hal_bemf_update_callback_t callback, uint32_t pwm_frequency_hz) {
+    g_pwm_wrap_value = (125000000 / pwm_frequency_hz) - 1;
     g_pwm_a_pin = pwm_a_pin;
     g_pwm_b_pin = pwm_b_pin;
     bemf_callback = callback;
@@ -124,7 +123,7 @@ void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, ui
     motor_pwm_slice = pwm_gpio_to_slice_num(g_pwm_a_pin);
 
     pwm_config motor_pwm_conf = pwm_get_default_config();
-    pwm_config_set_wrap(&motor_pwm_conf, PWM_WRAP_VALUE);
+    pwm_config_set_wrap(&motor_pwm_conf, g_pwm_wrap_value);
     pwm_init(motor_pwm_slice, &motor_pwm_conf, true);
 
     // --- PWM Interrupt for Synchronization ---
@@ -140,7 +139,7 @@ void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, ui
 
 void hal_motor_set_pwm(int duty_cycle, bool forward) {
     // Map the 8-bit duty cycle (0-255) to the PWM counter's range.
-    uint16_t level = map(duty_cycle, 0, 255, 0, PWM_WRAP_VALUE);
+    uint16_t level = map(duty_cycle, 0, 255, 0, g_pwm_wrap_value);
 
     // Calculate timing for BEMF measurement.
     // The PWM Wrap interrupt fires at the start of the ON phase (Counter = 0).
@@ -151,10 +150,10 @@ void hal_motor_set_pwm(int duty_cycle, bool forward) {
     uint32_t settling_ticks = BEMF_MEASUREMENT_DELAY_US * 125;
     uint32_t trigger_tick_pos = level + settling_ticks;
 
-    // If the sampling point extends beyond the PWM period (PWM_WRAP_VALUE),
+    // If the sampling point extends beyond the PWM period (g_pwm_wrap_value),
     // it means the OFF phase is too short or non-existent (high duty cycle).
     // In this case, we skip measurement to avoid sampling during the next ON phase.
-    if (trigger_tick_pos >= PWM_WRAP_VALUE) {
+    if (trigger_tick_pos >= g_pwm_wrap_value) {
         g_skip_measurement = true;
     } else {
         g_skip_measurement = false;

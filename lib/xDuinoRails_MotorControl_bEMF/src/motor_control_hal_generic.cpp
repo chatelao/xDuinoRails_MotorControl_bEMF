@@ -25,7 +25,8 @@ static hal_bemf_update_callback_t g_bemf_callback = nullptr;
 // Simulated buffer
 static volatile uint16_t s_bemf_buffer[2];
 
-void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, uint8_t bemf_b_pin, hal_bemf_update_callback_t callback) {
+void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, uint8_t bemf_b_pin, hal_bemf_update_callback_t callback, uint32_t pwm_frequency_hz) {
+    // pwm_frequency_hz is ignored in the generic HAL
     g_pwm_a_pin = pwm_a_pin;
     g_pwm_b_pin = pwm_b_pin;
     g_bemf_a_pin = bemf_a_pin;
