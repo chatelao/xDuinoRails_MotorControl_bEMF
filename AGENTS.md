@@ -29,6 +29,7 @@ Add a comment to each testcase
 
 # CI/CD
 - Build and test the software on every push on every branch
+- Generate the simulation image before every check-in
 - Provide all firmware examples with every release as assets
 
 # Out of Scope
