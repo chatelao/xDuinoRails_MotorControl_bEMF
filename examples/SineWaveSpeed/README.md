@@ -21,3 +21,22 @@ For other boards, the default pins are:
 - **MOTOR_PWM_B_PIN:** 8
 - **MOTOR_BEMF_A_PIN:** A3
 - **MOTOR_BEMF_B_PIN:** A2
+
+## LED Configuration
+
+### Seeed XIAO RP2040
+
+The example utilizes the onboard Neopixel LED on the Seeed XIAO RP2040 to indicate the motor status:
+
+- **Startup:** Blue
+- **Forward:** Green
+- **Reverse:** Red
+
+### LED Edition (Seeed XIAO RP2040)
+
+For testing purposes without a physical motor, the `LED_EDITION` build flag can be used (e.g., `pio run -e seeed_xiao_rp2040_led`). This configuration reassigns the motor PWM pins to the onboard user LEDs:
+
+- **MOTOR_PWM_A_PIN:** 17 (Red LED)
+- **MOTOR_PWM_B_PIN:** 16 (Green LED)
+
+The firmware automatically handles the active-low logic of these LEDs, allowing them to visually represent the motor's speed and direction (fading in and out based on the sine wave).
