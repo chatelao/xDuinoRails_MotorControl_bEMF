@@ -101,9 +101,6 @@ const unsigned long DEBOUNCE_DELAY      = 50; // 50 milliseconds
 void setup() {
   // Start serial communication for debugging output.
   Serial.begin(115200);
-  while (!Serial) {
-    ; // Wait for the serial port to connect. Needed for native USB port only.
-  }
   Serial.println("Rotary Encoder Motor Control with HAL Example");
   Serial.println("Turn the knob to change speed, press it to stop or change direction.");
 

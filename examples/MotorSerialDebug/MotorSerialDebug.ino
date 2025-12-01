@@ -62,9 +62,6 @@ bool current_direction = true;
 void setup() {
   // Start serial communication for debugging output.
   Serial.begin(115200);
-  while (!Serial) {
-    ; // Wait for the serial port to connect. Needed for native USB port only.
-  }
   Serial.println("MotorSerialDebug Example");
   Serial.println("Send 0-9 for speed (0% - 90%), '-' to toggle direction");
 
