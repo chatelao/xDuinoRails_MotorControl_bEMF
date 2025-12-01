@@ -2,6 +2,28 @@
 
 A hardware abstraction layer (HAL) for PlatformIO, designed for controlling DC motors with high precision. This library provides a low-level interface for PWM motor control and back-EMF (BEMF) sensing. This library is ideal for projects like model trains, robotics, or any application that requires direct hardware control.
 
+## Documentation
+
+*   [How to Use](docs/HOW_TO_USE.en.md)
+*   [User Manual](docs/USER_MANUAL.en.md)
+*   [Core Concepts](docs/CORE_CONCEPTS.en.md)
+*   [Developer Reference](docs/DEVELOPER_REFERENCE.en.md)
+*   [Hardware Control Details](docs/HARDWARE_CONTROL.en.md)
+*   [BEMF Measurement Techniques](docs/BEMF_MEASUREMENT_TECHNIQUES.en.md)
+*   [PWM Frequencies](docs/PWM_FREQUENCIES.en.md)
+*   [Motor Driver ICs](docs/MOTOR_DRIVER_ICS.en.md)
+
+### Supported Hardware
+*   [Seeed Studio XIAO RP2040](docs/SEEED_XIAO_RP2040.en.md)
+*   [Seeed Studio XIAO ESP32-C3](docs/SEEED_XIAO_ESP32C3.en.md)
+*   [Seeed Studio XIAO ESP32-S3](docs/SEEED_XIAO_ESP32S3.en.md)
+*   [STM32 Nucleo G431RB](docs/NUCLEO_G431RB.en.md)
+*   [STM32 Nucleo F446RE](docs/NUCLEO_F446RE.en.md)
+*   [Seeed Studio XIAO SAMD21](docs/SEEED_XIAO_SAMD21.en.md)
+*   [Adafruit Feather nRF52840](docs/ADAFRUIT_FEATHER_NRF52840.en.md)
+*   [Adafruit Feather nRF52832](docs/ADAFRUIT_FEATHER_NRF52832.en.md)
+*   [Arduino Uno](docs/ARDUINO_UNO.en.md)
+
 ## Features
 
 *   **Low-Level Control:** Direct access to hardware peripherals for PWM and ADC.
@@ -17,25 +39,26 @@ A hardware abstraction layer (HAL) for PlatformIO, designed for controlling DC m
 1.  Add this repository to the `lib_deps` section of your `platformio.ini` file:
     ```ini
     lib_deps =
+        https://github.com/OpenRailAssociation/xDuinoRails_MotorControl_bEMF.git
     ```
 2.  PlatformIO will automatically download and install the library the next time you build your project.
 
 ## Wiring Diagram
 
-This diagram shows a typical wiring setup using a XIAO SEED RP2040 and a BDR-6133 motor driver.
+This diagram shows a typical wiring setup using a Seeed Studio XIAO RP2040 and a BDR-6133 motor driver.
 
 ```
                      +----------------------+      +----------------------+      +---------------+
-                     |  XIAO SEED RP2040    |      |     BDR-6133         |      |     Motor     |
+                     | Seeed XIAO RP2040    |      |     BDR-6133         |      |     Motor     |
                      |      (Top View)      |      |    Motor Driver      |      |               |
                      +----------------------+      +----------------------+      +---------------+
                      | D0/A0            5v  |      |                      |      |               |
                      | D1/A1            GND |      |                      |      |               |
-        (BEMF B) <---| D2/A2            3v3 | <----+                 OutB |=====>| B (-> bEMF B) |
-        (BEMF A) <---| D3/A3            D10 | <----+                 OutA |=====>| A (-> bEMF A) |
-        (DCC-RX) ----| D4               D9  |      |                      |      |               |
-       (ACC-ACK) ----| D5               D8  |----->| InB                  |      |               |
-    (Railcom-TX) ----| D6               D7  |----->| InA                  |      |               |
+                     | D2/A2            3v3 |      |                      |      |               |
+                     | D3/A3            D10 |----->| InB             OutB |=====>| B (-> D8)     |
+                     | D4               D9  |----->| InA             OutA |=====>| A (-> D7)     |
+                     | D5               D8  |<----------------------------+      |               |
+                     | D6               D7  |<-----------------------------------+               |
                      +----------------------+      +----------------------+      +---------------+
 ```
 
@@ -48,7 +71,7 @@ This simple example demonstrates how to get your motor up and running.
 #include "motor_control_hal.h"
 
 // 1. Define Pin Connections
-// These pins are for the XIAO SEED RP2040, but you can change them for your board.
+// These pins are for the Seeed XIAO RP2040 (Standard Edition)
 const int MOTOR_PWM_A_PIN = D9;
 const int MOTOR_PWM_B_PIN = D10;
 const int MOTOR_BEMF_A_PIN = D7;
@@ -58,8 +81,8 @@ const int MOTOR_BEMF_B_PIN = D8;
 // This function is called from an interrupt whenever a new BEMF value is available.
 void on_bemf_update(int raw_bemf) {
   // In a real application, you would filter and process this data.
-  Serial.print("Raw BEMF: ");
-  Serial.println(raw_bemf);
+  // Note: Serial printing in ISR is not recommended for production, only for simple debug.
+  // Serial.println(raw_bemf);
 }
 
 void setup() {
@@ -111,7 +134,6 @@ void your_callback_function_name(int raw_bemf_value);
 void on_bemf_update(int raw_bemf) {
   // IMPORTANT: Keep this function short and fast as it runs in an interrupt.
   // Perform filtering, processing, and control logic adjustments here.
-  Serial.print("Raw BEMF: ");
-  Serial.println(raw_bemf);
+  // volatile int latest_bemf = raw_bemf;
 }
 ```
