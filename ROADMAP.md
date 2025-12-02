@@ -10,7 +10,7 @@ This document outlines the status of supported platforms and the plan for adding
 - [x] Add a new PlatformIO environment for the `seeed_xiao_esp32s3` board.
 - [x] Verify that all examples compile successfully for the new platform.
 - [ ] Perform on-hardware testing and validation.
-- [ ] Add documentation for the Seeed XIAO ESP32-S3.
+- [x] Add documentation for the Seeed XIAO ESP32-S3.
 
 ### Seeed XIAO nRF52840 / nRF52840 Sense
 
@@ -19,6 +19,14 @@ This document outlines the status of supported platforms and the plan for adding
 - [x] Verify that all examples compile successfully for the new platform.
 - [ ] Perform on-hardware testing and validation.
 - [ ] Add documentation for the Seeed XIAO nRF52840.
+
+### Arduino AVR (Uno, Nano, Mega)
+
+- [x] Research feasibility of low-level BEMF on AVR.
+- [x] Implement the Hardware Abstraction Layer (HAL) for AVR.
+- [x] Add a new PlatformIO environment for `uno`.
+- [x] Verify that all examples compile successfully for the new platform.
+- [x] Add documentation for Arduino AVR.
 
 ## Planned Platforms
 
@@ -29,14 +37,6 @@ This document outlines the status of supported platforms and the plan for adding
 - [ ] Verify that all examples compile successfully for the new platform.
 - [ ] Perform on-hardware testing and validation.
 - [ ] Add documentation for the Seeed XIAO RA4M1.
-
-### Arduino AVR (Uno, Nano, Mega)
-
-- [ ] Research feasibility of low-level BEMF on AVR.
-- [ ] Implement the Hardware Abstraction Layer (HAL) for AVR.
-- [ ] Add a new PlatformIO environment for `uno`, `nano`, etc.
-- [ ] Verify that all examples compile successfully for the new platform.
-- [ ] Add documentation for Arduino AVR.
 
 ### Teensy (4.x / 3.x)
 
