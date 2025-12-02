@@ -86,4 +86,14 @@ int hal_motor_get_bemf_buffer(volatile uint16_t** buffer, int* last_write_pos);
  */
 int hal_motor_get_current_buffer(volatile uint16_t** buffer, int* last_write_pos);
 
+/**
+ * @brief Configures the DAC output for debugging (STM32 only).
+ *
+ * This function enables the DAC on the specified pin to output the
+ * calculated differential BEMF signal.
+ *
+ * @param dac_pin The GPIO pin to use for DAC output.
+ */
+void hal_motor_configure_dac(uint8_t dac_pin);
+
 #endif // MOTOR_CONTROL_HAL_H

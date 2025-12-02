@@ -208,4 +208,14 @@ int hal_motor_get_bemf_buffer(volatile uint16_t** buffer, int* last_write_pos) {
     return BEMF_RING_BUFFER_SIZE;
 }
 
+int hal_motor_get_current_buffer(volatile uint16_t** buffer, int* last_write_pos) {
+    *buffer = nullptr;
+    *last_write_pos = 0;
+    return 0;
+}
+
+void hal_motor_configure_dac(uint8_t dac_pin) {
+    // Not implemented
+}
+
 #endif // ARDUINO_ARCH_RP2040
