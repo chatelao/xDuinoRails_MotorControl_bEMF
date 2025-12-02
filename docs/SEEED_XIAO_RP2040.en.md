@@ -57,9 +57,9 @@ The Seeed Studio XIAO RP2040 is a powerful, low-power microcontroller in a tiny 
 
 | Device           | GPIO Pin | Description                                                                |
 | ---------------- | -------- | -------------------------------------------------------------------------- |
-| User LED (Red)   | GPIO17   | A single red LED that can be controlled by the user.                     |
-| User LED (Green) | GPIO16   | A single green LED that can be controlled by the user.                     |
-| User LED (Blue)  | GPIO25   | A single blue LED that can be controlled by the user.                      |
+| User LED (Red)   | GPIO17   | A single red LED that can be controlled by the user (active low).          |
+| User LED (Green) | GPIO16   | A single green LED that can be controlled by the user (active low).        |
+| User LED (Blue)  | GPIO25   | A single blue LED that can be controlled by the user (active low).         |
 | RGB LED (Neopixel) | GPIO12   | WS2812 addressable RGB LED. Data pin.                                      |
 | RGB LED Power    | GPIO11   | Power enable for the RGB LED. Must be set HIGH to enable the Neopixel.     |
 | Boot Button      | -        | Used to enter bootloader mode for flashing firmware. Not a user-programmable button. |
