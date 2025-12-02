@@ -56,9 +56,6 @@ const int MOTOR_BEMF_B_PIN      =  A2;
 void setup() {
   // Start serial communication for debugging output.
   Serial.begin(115200);
-  while (!Serial) {
-    ; // Wait for the serial port to connect. Needed for native USB port only.
-  }
   Serial.println("Fifty Percent Motor Example");
 
   // Initialize the motor hardware abstraction layer.

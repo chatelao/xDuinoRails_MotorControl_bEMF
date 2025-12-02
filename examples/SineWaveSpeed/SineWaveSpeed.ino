@@ -63,9 +63,6 @@ bool motorDirection             = true;   // Motor direction: true for forward
 
 void setup() {
   Serial.begin(115200);
-  while (!Serial) {
-    ; // Wait for serial port to connect
-  }
   Serial.println("Sine Wave Motor Speed Control Example");
 
   // Initialize the motor hardware abstraction layer.
