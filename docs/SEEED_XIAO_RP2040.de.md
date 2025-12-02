@@ -57,9 +57,9 @@ Der Seeed Studio XIAO RP2040 ist ein leistungsstarker, energiesparender Mikrocon
 
 | Gerät            | GPIO Pin | Beschreibung                                                               |
 | ---------------- | -------- | -------------------------------------------------------------------------- |
-| Benutzer-LED (Rot)| GPIO17  | Eine einzelne rote LED, steuerbar durch den Benutzer.                      |
-| Benutzer-LED (Grün)| GPIO16 | Eine einzelne grüne LED, steuerbar durch den Benutzer.                     |
-| Benutzer-LED (Blau)| GPIO25 | Eine einzelne blaue LED, steuerbar durch den Benutzer.                     |
+| Benutzer-LED (Rot)| GPIO17  | Eine einzelne rote LED, steuerbar durch den Benutzer (active low).         |
+| Benutzer-LED (Grün)| GPIO16 | Eine einzelne grüne LED, steuerbar durch den Benutzer (active low).        |
+| Benutzer-LED (Blau)| GPIO25 | Eine einzelne blaue LED, steuerbar durch den Benutzer (active low).        |
 | RGB LED (Neopixel)| GPIO12  | WS2812 adressierbare RGB-LED. Daten-Pin.                                   |
 | RGB LED Strom    | GPIO11   | Stromfreigabe für die RGB-LED. Muss HIGH sein, um Neopixel zu aktivieren.  |
 | Boot-Taste       | -        | Zum Starten des Bootloader-Modus. Keine programmierbare Taste.             |
