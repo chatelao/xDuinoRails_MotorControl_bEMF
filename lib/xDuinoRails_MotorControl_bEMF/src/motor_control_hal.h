@@ -19,6 +19,16 @@ const uint32_t BEMF_MEASUREMENT_DELAY_US = 10;
 // Ring buffer size for ADC samples. Must be a power of 2 for DMA efficiency on some platforms.
 const uint32_t BEMF_RING_BUFFER_SIZE = 64;
 
+// Default Shunt Resistor value in Ohms (can be overridden by build flags)
+#ifndef SHUNT_RESISTOR_OHMS
+#define SHUNT_RESISTOR_OHMS 0.5f
+#endif
+
+// Default Short Circuit Current Limit in Amps (can be overridden)
+#ifndef MAX_CURRENT_AMPS
+#define MAX_CURRENT_AMPS 2.0f
+#endif
+
 /**
  * @brief Callback function pointer type for BEMF updates.
  *

@@ -26,9 +26,13 @@ ADC_HandleTypeDef hadc;
 OPAMP_HandleTypeDef hopamp1;
 OPAMP_HandleTypeDef hopamp3;
 
+#if defined(MOTOR_CURRENT_PIN) || defined(ENABLE_CURRENT_SENSING)
+// Shared ADC2 Handle for protection or measurement
+ADC_HandleTypeDef hadc2;
+#endif
+
 #if defined(ENABLE_CURRENT_SENSING)
 OPAMP_HandleTypeDef hopamp2;
-ADC_HandleTypeDef hadc2;
 DMA_HandleTypeDef hdma_adc2;
 static volatile uint16_t current_ring_buffer[BEMF_RING_BUFFER_SIZE];
 
@@ -36,6 +40,14 @@ extern "C" void DMA1_Channel2_IRQHandler(void) {
     HAL_DMA_IRQHandler(&hdma_adc2);
 }
 #endif
+
+// ADC IRQ Handler (Shared for ADC1 and ADC2 on G4)
+extern "C" void ADC1_2_IRQHandler(void) {
+    #if defined(MOTOR_CURRENT_PIN) || defined(ENABLE_CURRENT_SENSING)
+    HAL_ADC_IRQHandler(&hadc2);
+    #endif
+    HAL_ADC_IRQHandler(&hadc);
+}
 
 // DMA IRQ Handler for G4 (Assuming DMA1 Channel 1)
 extern "C" void DMA1_Channel1_IRQHandler(void) {
@@ -47,6 +59,16 @@ extern "C" void DMA2_Stream0_IRQHandler(void) {
     HAL_DMA_IRQHandler(&hdma_adc);
 }
 #endif
+
+// ADC Watchdog Callback for Short Circuit Protection
+void HAL_ADC_LevelOutOfWindowCallback(ADC_HandleTypeDef* hadc) {
+    // FAST SHUTDOWN: Disable PWM immediately
+    if (pwm_timer) {
+        pwm_timer->pause();
+        pwm_timer->setCaptureCompare(pwm_channel_a, 0, TICK_COMPARE_FORMAT);
+        pwm_timer->setCaptureCompare(pwm_channel_b, 0, TICK_COMPARE_FORMAT);
+    }
+}
 
 // Shared Process Function
 static void process_bemf_data(volatile uint16_t* buffer, uint32_t length) {
@@ -120,7 +142,15 @@ void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, ui
     HAL_OPAMP_Init(&hopamp3);
     HAL_OPAMP_Start(&hopamp3);
 
+#if defined(MOTOR_CURRENT_PIN) || defined(ENABLE_CURRENT_SENSING)
+    // Calculate Threshold
+    // Threshold = (I_max * R_shunt / 3.3V) * 4095
+    const float V_limit = MAX_CURRENT_AMPS * SHUNT_RESISTOR_OHMS;
+    const uint32_t adc_threshold = (uint32_t)((V_limit / 3.3f) * 4095.0f);
+
 #if defined(ENABLE_CURRENT_SENSING)
+    // If ENABLE_CURRENT_SENSING is defined, we use OPAMP2/ADC2 setup below.
+    // We just need to add the Analog Watchdog to it.
     // OPAMP2 (Connected to PA7/D11)
     hopamp2.Instance = OPAMP2;
     hopamp2.Init.PowerMode = OPAMP_POWERMODE_NORMAL;
@@ -156,6 +186,16 @@ void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, ui
     sConfig2.OffsetNumber = ADC_OFFSET_NONE;
     HAL_ADC_ConfigChannel(&hadc2, &sConfig2);
 
+    // Configure Analog Watchdog for Short Circuit Protection
+    ADC_AnalogWDGConfTypeDef AnalogWDGConfig = {0};
+    AnalogWDGConfig.WatchdogNumber = ADC_ANALOGWATCHDOG_1;
+    AnalogWDGConfig.WatchdogMode = ADC_ANALOGWATCHDOG_SINGLE_REG;
+    AnalogWDGConfig.Channel = ADC_CHANNEL_3; // Monitor Current Channel
+    AnalogWDGConfig.ITMode = ENABLE;
+    AnalogWDGConfig.HighThreshold = adc_threshold;
+    AnalogWDGConfig.LowThreshold = 0;
+    HAL_ADC_AnalogWDGConfig(&hadc2, &AnalogWDGConfig);
+
     // Configure DMA (DMA1 Channel 2 for ADC2)
     hdma_adc2.Instance = DMA1_Channel2;
     hdma_adc2.Init.Request = DMA_REQUEST_ADC2;
@@ -173,8 +213,62 @@ void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, ui
     HAL_NVIC_SetPriority(DMA1_Channel2_IRQn, 0, 0);
     HAL_NVIC_EnableIRQ(DMA1_Channel2_IRQn);
 
+    // Enable ADC IRQ for Watchdog
+    HAL_NVIC_SetPriority(ADC1_2_IRQn, 0, 0);
+    HAL_NVIC_EnableIRQ(ADC1_2_IRQn);
+
     HAL_ADCEx_Calibration_Start(&hadc2, ADC_SINGLE_ENDED);
     HAL_ADC_Start_DMA(&hadc2, (uint32_t*)current_ring_buffer, BEMF_RING_BUFFER_SIZE);
+#elif defined(MOTOR_CURRENT_PIN)
+    // Case: MOTOR_CURRENT_PIN is defined but ENABLE_CURRENT_SENSING is NOT.
+    // We need to set up a dedicated ADC (ADC2) just for protection, without the ring buffer.
+
+    // Configure ADC2
+    hadc2.Instance = ADC2;
+    hadc2.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4;
+    hadc2.Init.Resolution = ADC_RESOLUTION_12B;
+    hadc2.Init.ScanConvMode = ADC_SCAN_DISABLE;
+    hadc2.Init.ContinuousConvMode = DISABLE;
+    hadc2.Init.DiscontinuousConvMode = DISABLE;
+    // We can use software start or TRGO. TRGO matches PWM cycle (good for noise)
+    hadc2.Init.ExternalTrigConv = ADC_EXTERNALTRIG_T1_TRGO;
+    hadc2.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_RISING;
+    hadc2.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+    hadc2.Init.NbrOfConversion = 1;
+    hadc2.Init.DMAContinuousRequests = DISABLE; // No DMA needed for protection only
+    hadc2.Init.Overrun = ADC_OVR_DATA_OVERWRITTEN;
+    hadc2.Init.OversamplingMode = DISABLE;
+    HAL_ADC_Init(&hadc2);
+
+    // Find channel for MOTOR_CURRENT_PIN
+    PinName p = digitalPinToPinName(MOTOR_CURRENT_PIN);
+    uint32_t channel = STM_PIN_CHANNEL(pinmap_function(p, PinMap_ADC));
+
+    ADC_ChannelConfTypeDef sConfig2 = {0};
+    sConfig2.Channel = channel;
+    sConfig2.Rank = ADC_REGULAR_RANK_1;
+    sConfig2.SamplingTime = ADC_SAMPLETIME_47CYCLES_5;
+    sConfig2.SingleDiff = ADC_SINGLE_ENDED;
+    sConfig2.OffsetNumber = ADC_OFFSET_NONE;
+    HAL_ADC_ConfigChannel(&hadc2, &sConfig2);
+
+    // Configure Analog Watchdog
+    ADC_AnalogWDGConfTypeDef AnalogWDGConfig = {0};
+    AnalogWDGConfig.WatchdogNumber = ADC_ANALOGWATCHDOG_1;
+    AnalogWDGConfig.WatchdogMode = ADC_ANALOGWATCHDOG_SINGLE_REG;
+    AnalogWDGConfig.Channel = channel;
+    AnalogWDGConfig.ITMode = ENABLE;
+    AnalogWDGConfig.HighThreshold = adc_threshold;
+    AnalogWDGConfig.LowThreshold = 0;
+    HAL_ADC_AnalogWDGConfig(&hadc2, &AnalogWDGConfig);
+
+    // Enable ADC IRQ
+    HAL_NVIC_SetPriority(ADC1_2_IRQn, 0, 0);
+    HAL_NVIC_EnableIRQ(ADC1_2_IRQn);
+
+    HAL_ADCEx_Calibration_Start(&hadc2, ADC_SINGLE_ENDED);
+    HAL_ADC_Start(&hadc2); // Start conversion (triggered by Timer or SW)
+#endif
 #endif
 
     // Configure ADC1
