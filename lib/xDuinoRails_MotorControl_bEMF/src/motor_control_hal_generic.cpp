@@ -59,6 +59,22 @@ void hal_motor_set_pwm(int duty_cycle, bool forward) {
     // 255 (max duty) -> ~3000 (arbitrary max BEMF).
     int virtual_bemf = map(duty_cycle, 0, 255, 0, 3000);
 
+    // Software Short Circuit Protection
+#if defined(MOTOR_CURRENT_PIN)
+    // Threshold calculation: V = I * R
+    // V_adc = (V / 3.3) * 1023 (Arduino default) or 4095
+    // Assuming standard 10-bit resolution for Generic analogRead
+    const float limit_volts = MAX_CURRENT_AMPS * SHUNT_RESISTOR_OHMS;
+    const int limit_adc = (int)((limit_volts / 3.3f) * 1023.0f);
+
+    if (analogRead(MOTOR_CURRENT_PIN) > limit_adc) {
+        analogWrite(g_pwm_a_pin, 0);
+        analogWrite(g_pwm_b_pin, 0);
+        // Do not update callback or continue
+        return;
+    }
+#endif
+
     if (g_bemf_callback) {
         g_bemf_callback(virtual_bemf);
     }

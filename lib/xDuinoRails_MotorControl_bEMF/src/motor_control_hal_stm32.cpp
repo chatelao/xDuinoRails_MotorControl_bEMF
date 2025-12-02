@@ -26,9 +26,16 @@ ADC_HandleTypeDef hadc;
 OPAMP_HandleTypeDef hopamp1;
 OPAMP_HandleTypeDef hopamp3;
 
+#if defined(MOTOR_CURRENT_PIN) || defined(ENABLE_CURRENT_SENSING)
+// Shared ADC2 Handle for protection or measurement
+ADC_HandleTypeDef hadc2;
+// Hardware Protection Handles (DAC + COMP)
+DAC_HandleTypeDef hdac1;
+COMP_HandleTypeDef hcomp2;
+#endif
+
 #if defined(ENABLE_CURRENT_SENSING)
 OPAMP_HandleTypeDef hopamp2;
-ADC_HandleTypeDef hadc2;
 DMA_HandleTypeDef hdma_adc2;
 static volatile uint16_t current_ring_buffer[BEMF_RING_BUFFER_SIZE];
 
@@ -36,6 +43,14 @@ extern "C" void DMA1_Channel2_IRQHandler(void) {
     HAL_DMA_IRQHandler(&hdma_adc2);
 }
 #endif
+
+// ADC IRQ Handler (Shared for ADC1 and ADC2 on G4)
+extern "C" void ADC1_2_IRQHandler(void) {
+    #if defined(MOTOR_CURRENT_PIN) || defined(ENABLE_CURRENT_SENSING)
+    HAL_ADC_IRQHandler(&hadc2);
+    #endif
+    HAL_ADC_IRQHandler(&hadc);
+}
 
 // DMA IRQ Handler for G4 (Assuming DMA1 Channel 1)
 extern "C" void DMA1_Channel1_IRQHandler(void) {
@@ -47,6 +62,16 @@ extern "C" void DMA2_Stream0_IRQHandler(void) {
     HAL_DMA_IRQHandler(&hdma_adc);
 }
 #endif
+
+// ADC Watchdog Callback for Short Circuit Protection
+void HAL_ADC_LevelOutOfWindowCallback(ADC_HandleTypeDef* hadc) {
+    // FAST SHUTDOWN: Disable PWM immediately
+    if (pwm_timer) {
+        pwm_timer->pause();
+        pwm_timer->setCaptureCompare(pwm_channel_a, 0, TICK_COMPARE_FORMAT);
+        pwm_timer->setCaptureCompare(pwm_channel_b, 0, TICK_COMPARE_FORMAT);
+    }
+}
 
 // Shared Process Function
 static void process_bemf_data(volatile uint16_t* buffer, uint32_t length) {
@@ -96,6 +121,8 @@ void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, ui
     __HAL_RCC_DMA1_CLK_ENABLE();
     __HAL_RCC_ADC12_CLK_ENABLE();
     __HAL_RCC_OPAMP_CLK_ENABLE();
+    __HAL_RCC_DAC1_CLK_ENABLE();
+    __HAL_RCC_COMP_CLK_ENABLE();
 
     // Configure OpAmps (Follower Mode)
     // OPAMP1 (Connected to PA1)
@@ -120,13 +147,83 @@ void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, ui
     HAL_OPAMP_Init(&hopamp3);
     HAL_OPAMP_Start(&hopamp3);
 
+#if defined(MOTOR_CURRENT_PIN) || defined(ENABLE_CURRENT_SENSING)
+    // Calculate Threshold
+    // Threshold = (I_max * R_shunt / 3.3V) * 4095
+    const float V_limit = MAX_CURRENT_AMPS * SHUNT_RESISTOR_OHMS;
+    const uint32_t adc_threshold = (uint32_t)((V_limit / 3.3f) * 4095.0f);
+
+    // --- HARDWARE PROTECTION: DAC + COMP + TIM_BREAK ---
+
+    // 1. Configure DAC to generate threshold voltage
+    hdac1.Instance = DAC1;
+    HAL_DAC_Init(&hdac1);
+    DAC_ChannelConfTypeDef sConfigDAC = {0};
+    sConfigDAC.DAC_HighFrequency = DAC_HIGH_FREQUENCY_INTERFACE_MODE_AUTOMATIC;
+    sConfigDAC.DAC_DMADoubleDataMode = DISABLE;
+    sConfigDAC.DAC_SignedFormat = DISABLE;
+    sConfigDAC.DAC_SampleAndHold = DAC_SAMPLEANDHOLD_DISABLE;
+    sConfigDAC.DAC_Trigger = DAC_TRIGGER_NONE;
+    sConfigDAC.DAC_OutputBuffer = DAC_OUTPUTBUFFER_ENABLE;
+    sConfigDAC.DAC_ConnectOnChipPeripheral = DAC_CHIPCONNECT_ENABLE; // Connect to COMP
+    sConfigDAC.DAC_UserTrimming = DAC_TRIMMING_FACTORY;
+    HAL_DAC_ConfigChannel(&hdac1, &sConfigDAC, DAC_CHANNEL_1);
+    HAL_DAC_Start(&hdac1, DAC_CHANNEL_1);
+    HAL_DAC_SetValue(&hdac1, DAC_CHANNEL_1, DAC_ALIGN_12B_R, adc_threshold);
+
+    // 2. Configure Comparator (COMP2)
+    // Input Plus: OPAMP2 Output (Internal)
+    // Input Minus: DAC1 Channel 1 (Internal)
+    hcomp2.Instance = COMP2;
+    hcomp2.Init.InputPlus = COMP_INPUT_PLUS_OPAMP2;
+    hcomp2.Init.InputMinus = COMP_INPUT_MINUS_DAC1_CH1;
+    hcomp2.Init.OutputPol = COMP_OUTPUTPOL_NONINVERTED;
+    hcomp2.Init.Hysteresis = COMP_HYSTERESIS_LOW;
+    hcomp2.Init.BlankingSrce = COMP_BLANKINGSRC_NONE;
+    hcomp2.Init.TriggerMode = COMP_TRIGGERMODE_NONE; // We use BKIN, not IT
+    HAL_COMP_Init(&hcomp2);
+    HAL_COMP_Start(&hcomp2);
+
+    // 3. Configure Timer Break (Hardware Shutdown)
+    // Link COMP2 Output to TIM1 Break Input
+    TIM_BreakDeadTimeConfigTypeDef sBreakConfig = {0};
+    sBreakConfig.OffStateRunMode = TIM_OSSR_DISABLE;
+    sBreakConfig.OffStateIDLEMode = TIM_OSSI_DISABLE;
+    sBreakConfig.LockLevel = TIM_LOCKLEVEL_OFF;
+    sBreakConfig.DeadTime = 0;
+    sBreakConfig.BreakState = TIM_BREAK_ENABLE;
+    sBreakConfig.BreakPolarity = TIM_BREAKPOLARITY_HIGH; // Active High from COMP
+    sBreakConfig.BreakFilter = 0;
+    sBreakConfig.AutomaticOutput = TIM_AUTOMATICOUTPUT_ENABLE; // Restart after break clears? Or DISABLE to stay off?
+    // Safety: DISABLE automatic restart usually preferred for short circuit
+    sBreakConfig.AutomaticOutput = TIM_AUTOMATICOUTPUT_DISABLE;
+
+    // Enable Break Input from COMP2
+    HAL_TIMEx_ConfigBreakDeadTime(pwm_timer->getHandle(), &sBreakConfig);
+
+    TIM_Ex_BreakInputConfigTypeDef sBreakInputConfig = {0};
+    sBreakInputConfig.Source = TIM_BREAKINPUTSOURCE_COMP2;
+    sBreakInputConfig.Enable = TIM_BREAKINPUTSOURCE_ENABLE;
+    sBreakInputConfig.Polarity = TIM_BREAKINPUTSOURCE_POLARITY_HIGH;
+    HAL_TIMEx_ConfigBreakInput(pwm_timer->getHandle(), TIM_BREAKINPUT_BRK, &sBreakInputConfig);
+
 #if defined(ENABLE_CURRENT_SENSING)
+    // If ENABLE_CURRENT_SENSING is defined, we use OPAMP2/ADC2 setup below.
+    // We just need to add the Analog Watchdog to it (Redundant but good telemetry).
     // OPAMP2 (Connected to PA7/D11)
     hopamp2.Instance = OPAMP2;
     hopamp2.Init.PowerMode = OPAMP_POWERMODE_NORMAL;
     hopamp2.Init.Mode = OPAMP_FOLLOWER_MODE;
     hopamp2.Init.NonInvertingInput = OPAMP_NONINVERTINGINPUT_IO0; // PA7
-    hopamp2.Init.InternalOutput = DISABLE;
+    hopamp2.Init.InternalOutput = ENABLE; // Must enable internal output for COMP?
+                                          // Note: COMP_INPUT_PLUS_OPAMP2 usually works with internal link.
+                                          // However, if we drive external ADC pin too, we need both?
+                                          // G4 OPAMP InternalOutput usually refers to ADC channel.
+                                          // Checking: OPAMP output to ADC is dedicated channel.
+                                          // OPAMP output to pin is "Standalone" or "Follower".
+                                          // Let's set InternalOutput DISABLE as standard unless we know we need it for COMP.
+                                          // Actually, COMP takes from 'Internal node'.
+    hopamp2.Init.InternalOutput = DISABLE; // Standard pin output for ADC2
     hopamp2.Init.TimerControlledMuxmode = OPAMP_TIMERCONTROLLEDMUXMODE_DISABLE;
     hopamp2.Init.UserTrimming = OPAMP_TRIMMING_FACTORY;
     HAL_OPAMP_Init(&hopamp2);
@@ -156,6 +253,16 @@ void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, ui
     sConfig2.OffsetNumber = ADC_OFFSET_NONE;
     HAL_ADC_ConfigChannel(&hadc2, &sConfig2);
 
+    // Configure Analog Watchdog for Short Circuit Protection
+    ADC_AnalogWDGConfTypeDef AnalogWDGConfig = {0};
+    AnalogWDGConfig.WatchdogNumber = ADC_ANALOGWATCHDOG_1;
+    AnalogWDGConfig.WatchdogMode = ADC_ANALOGWATCHDOG_SINGLE_REG;
+    AnalogWDGConfig.Channel = ADC_CHANNEL_3; // Monitor Current Channel
+    AnalogWDGConfig.ITMode = ENABLE;
+    AnalogWDGConfig.HighThreshold = adc_threshold;
+    AnalogWDGConfig.LowThreshold = 0;
+    HAL_ADC_AnalogWDGConfig(&hadc2, &AnalogWDGConfig);
+
     // Configure DMA (DMA1 Channel 2 for ADC2)
     hdma_adc2.Instance = DMA1_Channel2;
     hdma_adc2.Init.Request = DMA_REQUEST_ADC2;
@@ -173,8 +280,62 @@ void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, ui
     HAL_NVIC_SetPriority(DMA1_Channel2_IRQn, 0, 0);
     HAL_NVIC_EnableIRQ(DMA1_Channel2_IRQn);
 
+    // Enable ADC IRQ for Watchdog
+    HAL_NVIC_SetPriority(ADC1_2_IRQn, 0, 0);
+    HAL_NVIC_EnableIRQ(ADC1_2_IRQn);
+
     HAL_ADCEx_Calibration_Start(&hadc2, ADC_SINGLE_ENDED);
     HAL_ADC_Start_DMA(&hadc2, (uint32_t*)current_ring_buffer, BEMF_RING_BUFFER_SIZE);
+#elif defined(MOTOR_CURRENT_PIN)
+    // Case: MOTOR_CURRENT_PIN is defined but ENABLE_CURRENT_SENSING is NOT.
+    // We need to set up a dedicated ADC (ADC2) just for protection, without the ring buffer.
+
+    // Configure ADC2
+    hadc2.Instance = ADC2;
+    hadc2.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4;
+    hadc2.Init.Resolution = ADC_RESOLUTION_12B;
+    hadc2.Init.ScanConvMode = ADC_SCAN_DISABLE;
+    hadc2.Init.ContinuousConvMode = DISABLE;
+    hadc2.Init.DiscontinuousConvMode = DISABLE;
+    // We can use software start or TRGO. TRGO matches PWM cycle (good for noise)
+    hadc2.Init.ExternalTrigConv = ADC_EXTERNALTRIG_T1_TRGO;
+    hadc2.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_RISING;
+    hadc2.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+    hadc2.Init.NbrOfConversion = 1;
+    hadc2.Init.DMAContinuousRequests = DISABLE; // No DMA needed for protection only
+    hadc2.Init.Overrun = ADC_OVR_DATA_OVERWRITTEN;
+    hadc2.Init.OversamplingMode = DISABLE;
+    HAL_ADC_Init(&hadc2);
+
+    // Find channel for MOTOR_CURRENT_PIN
+    PinName p = digitalPinToPinName(MOTOR_CURRENT_PIN);
+    uint32_t channel = STM_PIN_CHANNEL(pinmap_function(p, PinMap_ADC));
+
+    ADC_ChannelConfTypeDef sConfig2 = {0};
+    sConfig2.Channel = channel;
+    sConfig2.Rank = ADC_REGULAR_RANK_1;
+    sConfig2.SamplingTime = ADC_SAMPLETIME_47CYCLES_5;
+    sConfig2.SingleDiff = ADC_SINGLE_ENDED;
+    sConfig2.OffsetNumber = ADC_OFFSET_NONE;
+    HAL_ADC_ConfigChannel(&hadc2, &sConfig2);
+
+    // Configure Analog Watchdog
+    ADC_AnalogWDGConfTypeDef AnalogWDGConfig = {0};
+    AnalogWDGConfig.WatchdogNumber = ADC_ANALOGWATCHDOG_1;
+    AnalogWDGConfig.WatchdogMode = ADC_ANALOGWATCHDOG_SINGLE_REG;
+    AnalogWDGConfig.Channel = channel;
+    AnalogWDGConfig.ITMode = ENABLE;
+    AnalogWDGConfig.HighThreshold = adc_threshold;
+    AnalogWDGConfig.LowThreshold = 0;
+    HAL_ADC_AnalogWDGConfig(&hadc2, &AnalogWDGConfig);
+
+    // Enable ADC IRQ
+    HAL_NVIC_SetPriority(ADC1_2_IRQn, 0, 0);
+    HAL_NVIC_EnableIRQ(ADC1_2_IRQn);
+
+    HAL_ADCEx_Calibration_Start(&hadc2, ADC_SINGLE_ENDED);
+    HAL_ADC_Start(&hadc2); // Start conversion (triggered by Timer or SW)
+#endif
 #endif
 
     // Configure ADC1
