@@ -76,4 +76,8 @@ int hal_motor_get_current_buffer(volatile uint16_t** buffer, int* last_write_pos
     return 0;
 }
 
+void hal_motor_configure_dac(uint8_t dac_pin) {
+    // Not implemented
+}
+
 #endif

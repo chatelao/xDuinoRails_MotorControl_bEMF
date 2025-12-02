@@ -4,6 +4,11 @@
 
 #include <Arduino.h>
 
+#if defined(STM32G4)
+#include <stm32g4xx_hal_opamp.h>
+#include <stm32g4xx_hal_dac.h>
+#endif
+
 // Static Globals
 static hal_bemf_update_callback_t bemf_callback = nullptr;
 static uint8_t g_bemf_a_pin;
@@ -22,6 +27,10 @@ DMA_HandleTypeDef hdma_adc;
 ADC_HandleTypeDef hadc;
 
 #if defined(STM32G4)
+// DAC Handle for G4
+DAC_HandleTypeDef hdac;
+static uint32_t   g_dac_channel = 0;
+static volatile bool g_dac_enabled = false;
 // OpAmp Handles for G4
 OPAMP_HandleTypeDef hopamp1;
 OPAMP_HandleTypeDef hopamp3;
@@ -56,6 +65,12 @@ static void process_bemf_data(volatile uint16_t* buffer, uint32_t length) {
         sum_B += buffer[i + 1];
     }
     int measured_bemf = abs((int)(sum_A / (length / 2)) - (int)(sum_B / (length / 2)));
+
+#if defined(STM32G4)
+    if (g_dac_enabled) {
+        HAL_DAC_SetValue(&hdac, g_dac_channel, DAC_ALIGN_12B_R, measured_bemf);
+    }
+#endif
 
     if (bemf_callback) {
         bemf_callback(measured_bemf);
@@ -95,7 +110,7 @@ void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, ui
     // Enable Clocks
     __HAL_RCC_DMA1_CLK_ENABLE();
     __HAL_RCC_ADC12_CLK_ENABLE();
-    __HAL_RCC_OPAMP_CLK_ENABLE();
+    __HAL_RCC_SYSCFG_CLK_ENABLE();
 
     // Configure OpAmps (Follower Mode)
     // OPAMP1 (Connected to PA1)
@@ -352,6 +367,43 @@ int hal_motor_get_current_buffer(volatile uint16_t** buffer, int* last_write_pos
     *buffer = nullptr;
     *last_write_pos = 0;
     return 0;
+#endif
+}
+
+void hal_motor_configure_dac(uint8_t dac_pin) {
+#if defined(STM32G4)
+    PinName pin = digitalPinToPinName(dac_pin);
+    if (pin == PA_4) {
+        g_dac_channel = DAC_CHANNEL_1;
+    } else if (pin == PA_5) {
+        g_dac_channel = DAC_CHANNEL_2;
+    } else {
+        return;
+    }
+
+    __HAL_RCC_DAC1_CLK_ENABLE();
+
+    hdac.Instance = DAC1;
+    if (HAL_DAC_Init(&hdac) != HAL_OK) {
+        return;
+    }
+
+    DAC_ChannelConfTypeDef sConfig = {0};
+    sConfig.DAC_HighFrequency           = DAC_HIGH_FREQUENCY_INTERFACE_MODE_DISABLE;
+    sConfig.DAC_DMADoubleDataMode       = DISABLE;
+    sConfig.DAC_SignedFormat            = DISABLE;
+    sConfig.DAC_SampleAndHold           = DAC_SAMPLEANDHOLD_DISABLE;
+    sConfig.DAC_Trigger                 = DAC_TRIGGER_NONE;
+    sConfig.DAC_OutputBuffer            = DAC_OUTPUTBUFFER_ENABLE;
+    sConfig.DAC_ConnectOnChipPeripheral = DAC_CHIPCONNECT_EXTERNAL;
+    sConfig.DAC_UserTrimming            = DAC_TRIMMING_FACTORY;
+
+    if (HAL_DAC_ConfigChannel(&hdac, &sConfig, g_dac_channel) != HAL_OK) {
+        return;
+    }
+
+    HAL_DAC_Start(&hdac, g_dac_channel);
+    g_dac_enabled = true;
 #endif
 }
 
