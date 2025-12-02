@@ -32,7 +32,7 @@ Der Seeed Studio XIAO RP2040 ist ein leistungsstarker, energiesparender Mikrocon
 
 ## Pinbelegung
 
-![XIAO RP2040 Pinbelegung](https://files.seeedstudio.com/wiki/XIAO-RP2040/img/xinpin.jpg)
+<img src="https://files.seeedstudio.com/wiki/XIAO-RP2040/img/xinpin.jpg" alt="XIAO RP2040 Pinbelegung" width="50%">
 
 ### Externe Pins
 
