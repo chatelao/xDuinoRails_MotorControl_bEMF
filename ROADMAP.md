@@ -20,6 +20,14 @@ This document outlines the status of supported platforms and the plan for adding
 - [ ] Perform on-hardware testing and validation.
 - [ ] Add documentation for the Seeed XIAO nRF52840.
 
+### Seeed XIAO RP2040
+
+- [x] Implement the Hardware Abstraction Layer (HAL) for the RP2040.
+- [x] Add a new PlatformIO environment for the `seeed_xiao_rp2040` board.
+- [x] Verify that all examples compile successfully for the new platform.
+- [x] Perform on-hardware testing and validation.
+- [x] Add documentation for the Seeed XIAO RP2040.
+
 ### Arduino AVR (Uno, Nano, Mega)
 
 - [x] Research feasibility of low-level BEMF on AVR.
