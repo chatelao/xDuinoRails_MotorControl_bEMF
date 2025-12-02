@@ -34,6 +34,17 @@ DAC_HandleTypeDef hdac1;
 COMP_HandleTypeDef hcomp2;
 #endif
 
+#if defined(DEBUG_WITH_DAC)
+    #if defined(MOTOR_CURRENT_PIN) || defined(ENABLE_CURRENT_SENSING)
+        // Reuse hdac1 from protection
+        #define DEBUG_DAC_HANDLE (&hdac1)
+    #else
+        // Create dedicated handle
+        DAC_HandleTypeDef hdac_debug;
+        #define DEBUG_DAC_HANDLE (&hdac_debug)
+    #endif
+#endif
+
 #if defined(ENABLE_CURRENT_SENSING)
 OPAMP_HandleTypeDef hopamp2;
 DMA_HandleTypeDef hdma_adc2;
@@ -81,6 +92,13 @@ static void process_bemf_data(volatile uint16_t* buffer, uint32_t length) {
         sum_B += buffer[i + 1];
     }
     int measured_bemf = abs((int)(sum_A / (length / 2)) - (int)(sum_B / (length / 2)));
+
+#if defined(DEBUG_WITH_DAC) && defined(STM32G4)
+    // Write to DAC (12-bit)
+    uint32_t dac_val = (uint32_t)measured_bemf;
+    if(dac_val > 4095) dac_val = 4095;
+    HAL_DAC_SetValue(DEBUG_DAC_HANDLE, DAC_CHANNEL_2, DAC_ALIGN_12B_R, dac_val);
+#endif
 
     if (bemf_callback) {
         bemf_callback(measured_bemf);
@@ -336,6 +354,38 @@ void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, ui
     HAL_ADCEx_Calibration_Start(&hadc2, ADC_SINGLE_ENDED);
     HAL_ADC_Start(&hadc2); // Start conversion (triggered by Timer or SW)
 #endif
+#endif
+
+#if defined(DEBUG_WITH_DAC)
+    // --- DEBUG DAC SETUP ---
+    #if !defined(MOTOR_CURRENT_PIN) && !defined(ENABLE_CURRENT_SENSING)
+        // Initialize DAC if not done by protection
+        __HAL_RCC_DAC1_CLK_ENABLE();
+        hdac_debug.Instance = DAC1;
+        HAL_DAC_Init(&hdac_debug);
+    #endif
+
+    // Configure Channel 2 (PA5) for Debug Output
+    // Ensure PA5 is in Analog Mode
+    __HAL_RCC_GPIOA_CLK_ENABLE();
+    GPIO_InitTypeDef GPIO_InitStruct = {0};
+    GPIO_InitStruct.Pin = GPIO_PIN_5;
+    GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+    DAC_ChannelConfTypeDef sConfigDebug = {0};
+    sConfigDebug.DAC_HighFrequency = DAC_HIGH_FREQUENCY_INTERFACE_MODE_AUTOMATIC;
+    sConfigDebug.DAC_DMADoubleDataMode = DISABLE;
+    sConfigDebug.DAC_SignedFormat = DISABLE;
+    sConfigDebug.DAC_SampleAndHold = DAC_SAMPLEANDHOLD_DISABLE;
+    sConfigDebug.DAC_Trigger = DAC_TRIGGER_NONE;
+    sConfigDebug.DAC_OutputBuffer = DAC_OUTPUTBUFFER_ENABLE;
+    sConfigDebug.DAC_ConnectOnChipPeripheral = DAC_CHIPCONNECT_DISABLE;
+    sConfigDebug.DAC_UserTrimming = DAC_TRIMMING_FACTORY;
+
+    HAL_DAC_ConfigChannel(DEBUG_DAC_HANDLE, &sConfigDebug, DAC_CHANNEL_2);
+    HAL_DAC_Start(DEBUG_DAC_HANDLE, DAC_CHANNEL_2);
 #endif
 
     // Configure ADC1
