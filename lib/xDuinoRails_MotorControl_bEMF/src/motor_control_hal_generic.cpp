@@ -59,6 +59,19 @@ void hal_motor_set_pwm(int duty_cycle, bool forward) {
     // 255 (max duty) -> ~3000 (arbitrary max BEMF).
     int virtual_bemf = map(duty_cycle, 0, 255, 0, 3000);
 
+    // Update the simulated buffer so diagnostic functions have something to read
+    // Buffer layout is interleaved [B, A].
+    // If forward (A active), BEMF is on B?
+    // Actually, usually BEMF is measured on the OFF pin or via differential.
+    // Let's just put the virtual value in the buffer.
+    if (forward) {
+         s_bemf_buffer[0] = 0;
+         s_bemf_buffer[1] = virtual_bemf;
+    } else {
+         s_bemf_buffer[0] = virtual_bemf;
+         s_bemf_buffer[1] = 0;
+    }
+
     // Software Short Circuit Protection
 #if defined(MOTOR_CURRENT_PIN)
     // Threshold calculation: V = I * R
