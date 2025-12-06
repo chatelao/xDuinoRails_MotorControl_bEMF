@@ -32,6 +32,8 @@ static volatile uint16_t bemf_ring_buffer[BEMF_RING_BUFFER_SIZE];
 static hal_bemf_update_callback_t bemf_callback = nullptr;
 static uint8_t g_pwm_a_pin; // Motor PWM A pin
 static uint8_t g_pwm_b_pin; // Motor PWM B pin
+static uint8_t g_bemf_a_pin; // BEMF A pin
+static uint8_t g_bemf_b_pin; // BEMF B pin
 
 // Dynamic delay for ADC trigger, calculated based on duty cycle to ensure sampling during OFF phase.
 static volatile uint32_t g_adc_trigger_delay_us = BEMF_MEASUREMENT_DELAY_US;
@@ -67,6 +69,33 @@ static void dma_irq_handler() {
 // One-shot hardware timer callback to trigger the ADC conversion.
 // This is called after the BEMF_MEASUREMENT_DELAY_US to ensure a stable reading.
 static int64_t delayed_adc_trigger_callback(alarm_id_t id, void *user_data) {
+#if defined(MOTOR_CURRENT_PIN)
+    // --- FAST PROTECTION CHECK ---
+    // Manually read the current pin *before* starting the BEMF sequence.
+    // This allows us to check for overcurrent without messing up the BEMF DMA buffer.
+    adc_select_input(MOTOR_CURRENT_PIN - 26);
+    uint16_t current_val = adc_read();
+
+    const float V_limit = MAX_CURRENT_AMPS * SHUNT_RESISTOR_OHMS;
+    const uint16_t adc_threshold = (uint16_t)((V_limit / 3.3f) * 4095.0f);
+
+    if (current_val > adc_threshold) {
+        // Fast Shutdown
+#ifdef LED_EDITION
+        pwm_set_gpio_level(g_pwm_a_pin, PWM_WRAP_VALUE);
+        pwm_set_gpio_level(g_pwm_b_pin, PWM_WRAP_VALUE);
+#else
+        pwm_set_gpio_level(g_pwm_a_pin, 0);
+        pwm_set_gpio_level(g_pwm_b_pin, 0);
+#endif
+        // Do not proceed to BEMF measurement
+        return 0;
+    }
+
+    // Restore the correct input for BEMF (Start with B to maintain [B, A] order)
+    adc_select_input(g_bemf_b_pin - 26);
+#endif
+
     // Start a single ADC conversion sequence that will run until the DMA buffer is full.
     adc_run(true);
     return 0; // Returning 0 prevents the timer from rescheduling.
@@ -88,6 +117,8 @@ static void on_pwm_wrap() {
 void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, uint8_t bemf_b_pin, hal_bemf_update_callback_t callback) {
     g_pwm_a_pin = pwm_a_pin;
     g_pwm_b_pin = pwm_b_pin;
+    g_bemf_a_pin = bemf_a_pin;
+    g_bemf_b_pin = bemf_b_pin;
     bemf_callback = callback;
 
     // --- ADC and DMA Setup ---
@@ -120,15 +151,6 @@ void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, ui
     // --- Short Circuit Protection Setup ---
 #if defined(MOTOR_CURRENT_PIN)
     adc_gpio_init(MOTOR_CURRENT_PIN);
-    // Note: On RP2040, we might need to add this pin to the round-robin or handle it separately.
-    // Ideally, for "consistent" protection, we should check it.
-    // However, RP2040 BEMF implementation uses DMA Round-Robin on 2 pins.
-    // Adding a 3rd pin complicates the DMA loop significantly.
-    // For now, we assume software check in set_pwm using basic adc_read if not running DMA conflict.
-    // But adc_run(true) is active for BEMF.
-    // Accessing ADC manually while DMA is running might cause conflict.
-    // Given the constraints, we will skip adding robust protection to RP2040 in this step
-    // to avoid breaking the delicate BEMF timing, unless explicitly requested to refactor BEMF.
 #endif
 
     // --- PWM Setup for Motor Control ---
