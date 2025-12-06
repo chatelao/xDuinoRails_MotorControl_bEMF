@@ -56,6 +56,9 @@ static adc_channel_t g_bemf_b_channel;
 // The DMA buffer where the ADC results will be stored.
 // Must be volatile as it's written by DMA hardware.
 static volatile uint16_t s_dma_buf[ADC_DMA_BUF_SIZE] = {0};
+// Public buffer for BEMF diagnostics (strictly 2 channel layout)
+static volatile uint16_t s_bemf_user_buf[ADC_CONV_FRAME_SIZE] = {0};
+static int s_bemf_user_buf_pos = 0;
 
 // Handles for the various ESP32 hardware peripherals we are using.
 static mcpwm_cmpr_handle_t comparator_a = nullptr;
@@ -149,8 +152,23 @@ void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, ui
     adc1_config_channel_atten(g_bemf_a_channel, ADC_ATTEN_DB_11);
     adc1_config_channel_atten(g_bemf_b_channel, ADC_ATTEN_DB_11);
 
+#if defined(MOTOR_CURRENT_PIN)
+    // 3 Channels: A, B, Current
+    #define NUM_CHANNELS 3
+    adc_channel_t current_channel = ADC1_GPIO34_CHANNEL; // Map MOTOR_CURRENT_PIN manually if possible or assume defined
+    // Note: Standard Arduino ESP32 doesn't easily map Pin -> Channel Enum.
+    // We assume GPIO34 (ADC1_6) for devkit if not specified.
+    // Ideally use digitalPinToAnalogChannel?
+    // digitalPinToAnalogChannel(MOTOR_CURRENT_PIN) returns 0..7 for ADC1?
+    // Let's assume user defines correct PIN. But we need channel enum.
+    // For now, we reuse the pattern structure logic.
+#else
+    // 2 Channels: A, B
+    #define NUM_CHANNELS 2
+#endif
+
 #if defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32C3)
-    adc_digi_pattern_config_t adc_pattern[2] = {
+    adc_digi_pattern_config_t adc_pattern[NUM_CHANNELS] = {
         {
             .atten = ADC_ATTEN_DB_11,
             .channel = g_bemf_a_channel,
@@ -163,6 +181,14 @@ void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, ui
             .unit = ADC_UNIT_1,
             .bit_width = SOC_ADC_DIGI_MAX_BITWIDTH,
         },
+#if defined(MOTOR_CURRENT_PIN)
+        {
+            .atten = ADC_ATTEN_DB_11,
+            .channel = (adc_channel_t)digitalPinToAnalogChannel(MOTOR_CURRENT_PIN),
+            .unit = ADC_UNIT_1,
+            .bit_width = SOC_ADC_DIGI_MAX_BITWIDTH,
+        },
+#endif
     };
 
     adc_digi_configuration_t dig_cfg = {
@@ -176,7 +202,7 @@ void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, ui
     };
     adc_digi_controller_configure(&dig_cfg);
 #else
-    adc_digi_pattern_table_t adc_pattern[2] = {
+    adc_digi_pattern_table_t adc_pattern[NUM_CHANNELS] = {
         {
             .atten = ADC_ATTEN_DB_11,
             .channel = g_bemf_a_channel,
@@ -189,6 +215,14 @@ void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, ui
             .unit = ADC_UNIT_1,
             .bit_width = SOC_ADC_DIGI_MAX_BITWIDTH,
         },
+#if defined(MOTOR_CURRENT_PIN)
+        {
+            .atten = ADC_ATTEN_DB_11,
+            .channel = (adc_channel_t)digitalPinToAnalogChannel(MOTOR_CURRENT_PIN),
+            .unit = ADC_UNIT_1,
+            .bit_width = SOC_ADC_DIGI_MAX_BITWIDTH,
+        },
+#endif
     };
 
     adc_digi_config_t dig_cfg = {
@@ -295,9 +329,39 @@ void hal_read_and_process_bemf() {
 
     if (result == ESP_OK && ret_num > 0) {
         adc_digi_output_data_t* p_data = (adc_digi_output_data_t*)results;
-        for (int i = 0; i < ret_num / sizeof(adc_digi_output_data_t); i += 2) {
+        int num_samples = ret_num / sizeof(adc_digi_output_data_t);
+
+        // Loop stride depends on channel count (2 or 3)
+        // If 3 channels, [A, B, I, A, B, I...]
+        // Note: The driver returns data in order of pattern.
+#if defined(MOTOR_CURRENT_PIN)
+        int stride = 3;
+#else
+        int stride = 2;
+#endif
+
+        for (int i = 0; i < num_samples; i += stride) {
+            if (i + stride > num_samples) break;
+
             uint16_t adc_val_a = p_data[i].type2.data;
             uint16_t adc_val_b = p_data[i+1].type2.data;
+
+#if defined(MOTOR_CURRENT_PIN)
+            uint16_t adc_val_current = p_data[i+2].type2.data;
+            // FAST SHUTDOWN CHECK
+            const float V_limit = MAX_CURRENT_AMPS * SHUNT_RESISTOR_OHMS;
+            const uint16_t adc_threshold = (uint16_t)((V_limit / 3.3f) * 4095.0f);
+            if (adc_val_current > adc_threshold) {
+                mcpwm_comparator_set_compare_value(comparator_a, 0);
+                mcpwm_comparator_set_compare_value(comparator_b, 0);
+            }
+#endif
+
+            // Store BEMF in user buffer (Always 2 channels)
+            s_bemf_user_buf[s_bemf_user_buf_pos] = adc_val_a;
+            s_bemf_user_buf_pos = (s_bemf_user_buf_pos + 1) % ADC_CONV_FRAME_SIZE;
+            s_bemf_user_buf[s_bemf_user_buf_pos] = adc_val_b;
+            s_bemf_user_buf_pos = (s_bemf_user_buf_pos + 1) % ADC_CONV_FRAME_SIZE;
 
             if (bemf_callback) {
                 bemf_callback(abs(adc_val_a - adc_val_b));
@@ -332,9 +396,9 @@ static int get_dma_write_pos() {
 }
 
 int hal_motor_get_bemf_buffer(volatile uint16_t** buffer, int* last_write_pos) {
-    *buffer = s_dma_buf;
-    *last_write_pos = get_dma_write_pos();
-    return ADC_DMA_BUF_SIZE;
+    *buffer = s_bemf_user_buf;
+    *last_write_pos = s_bemf_user_buf_pos;
+    return ADC_CONV_FRAME_SIZE;
 }
 
 void hal_motor_set_pwm(int duty_cycle, bool forward) {

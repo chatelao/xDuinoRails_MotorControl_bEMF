@@ -27,7 +27,16 @@ static volatile int bemf_buffer_write_pos = 0;
 
 // Globals for the ADC ISR state machine
 static volatile int bemf_a_reading = -1;
+#if defined(MOTOR_CURRENT_PIN)
+enum AdcState {
+    READ_A,
+    READ_B,
+    READ_CURRENT
+};
+static volatile AdcState next_adc_state = READ_A;
+#else
 static volatile bool next_adc_is_a = true;
+#endif
 
 /**
  * @brief ADC Interrupt Service Routine.
@@ -40,6 +49,62 @@ void ADC_Handler() {
     // Check if the Result Ready interrupt flag is set
     if (ADC->INTFLAG.bit.RESRDY) {
         uint16_t current_reading = ADC->RESULT.reg;
+
+#if defined(MOTOR_CURRENT_PIN)
+        if (next_adc_state == READ_CURRENT) {
+             // --- FAST PROTECTION ---
+            const float V_limit = MAX_CURRENT_AMPS * SHUNT_RESISTOR_OHMS;
+            // SAMD21 12-bit ADC, Reference INTVCC1 (VDDANA / 2 = 1.65V) usually, OR VDDANA.
+            // Code uses ADC_REFCTRL_REFSEL_INTVCC1 (VDDANA / 2). Range 0..1.65V ?
+            // Wait, INTVCC1 is 1/2 VDDANA. Input range is VDDANA? No.
+            // SAMD21 Datasheet: VREF = VDDANA/2. Input Range = 0 to VREF?
+            // Or if GAIN is used? Code uses "ADC_CTRLB_PRESCALER...". No GAIN set?
+            // "Reference voltage is VDDANA/2". "Input range is 0 to VDDANA/2".
+            // If Shunt voltage > 1.65V (very high), we might saturate.
+            // Assuming 3.3V logic.
+            // 2A * 0.5R = 1.0V. Fits in 1.65V range.
+            // 2A * 0.1R = 0.2V. Fits.
+            const uint16_t adc_threshold = (uint16_t)((V_limit / (3.3f / 2.0f)) * 4095.0f);
+
+            if (current_reading > adc_threshold) {
+                // Kill PWM
+                TCC0->CC[0].reg = 0;
+                TCC0->CC[1].reg = 0;
+                // Force sync
+                while(TCC0->SYNCBUSY.bit.CC0 || TCC0->SYNCBUSY.bit.CC1);
+            }
+
+            // Do NOT store in BEMF buffer.
+            // Next: Read A
+            ADC->INPUTCTRL.bit.MUXPOS = g_APinDescription[g_bemf_a_pin].ulADCChannelNumber;
+            next_adc_state = READ_A;
+        }
+        else if (next_adc_state == READ_A) {
+            bemf_ring_buffer[bemf_buffer_write_pos] = current_reading;
+            bemf_buffer_write_pos = (bemf_buffer_write_pos + 1) % BEMF_RING_BUFFER_SIZE;
+
+            bemf_a_reading = current_reading;
+
+            // Next: Read B
+            ADC->INPUTCTRL.bit.MUXPOS = g_APinDescription[g_bemf_b_pin].ulADCChannelNumber;
+            next_adc_state = READ_B;
+        }
+        else { // READ_B
+            bemf_ring_buffer[bemf_buffer_write_pos] = current_reading;
+            bemf_buffer_write_pos = (bemf_buffer_write_pos + 1) % BEMF_RING_BUFFER_SIZE;
+
+            int bemf_b_reading = current_reading;
+            if (bemf_a_reading != -1) {
+                 int measured_bemf = abs(bemf_a_reading - bemf_b_reading);
+                 if (bemf_callback) bemf_callback(measured_bemf);
+                 bemf_a_reading = -1;
+            }
+
+            // Next: Read Current (Check protection every cycle)
+            ADC->INPUTCTRL.bit.MUXPOS = g_APinDescription[MOTOR_CURRENT_PIN].ulADCChannelNumber;
+            next_adc_state = READ_CURRENT;
+        }
+#else
         bemf_ring_buffer[bemf_buffer_write_pos] = current_reading;
         bemf_buffer_write_pos = (bemf_buffer_write_pos + 1) % BEMF_RING_BUFFER_SIZE;
 
@@ -66,6 +131,7 @@ void ADC_Handler() {
                 bemf_a_reading = -1;
             }
         }
+#endif
         // Clear the interrupt flag to re-arm it for the next event.
         ADC->INTFLAG.reg = ADC_INTFLAG_RESRDY;
     }
@@ -150,7 +216,7 @@ void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, ui
     // --- ADC ---
     ADC->CTRLA.reg = 0; // Disable ADC to configure it
     while(ADC->STATUS.bit.SYNCBUSY);
-    ADC->REFCTRL.reg = ADC_REFCTRL_REFSEL_INTVCC1; // Use VDDANA as reference
+    ADC->REFCTRL.reg = ADC_REFCTRL_REFSEL_INTVCC1; // Use VDDANA/2 as reference (1.65V)
     ADC->AVGCTRL.reg = ADC_AVGCTRL_SAMPLENUM_1;    // No averaging
     ADC->SAMPCTRL.reg = ADC_SAMPCTRL_SAMPLEN(0);   // 0 extra sample time
     // Set prescaler and 12-bit resolution

@@ -72,6 +72,11 @@ extern "C" void DMA1_Channel1_IRQHandler(void) {
 extern "C" void DMA2_Stream0_IRQHandler(void) {
     HAL_DMA_IRQHandler(&hdma_adc);
 }
+
+// ADC IRQ Handler for F4 (For Analog Watchdog)
+extern "C" void ADC_IRQHandler(void) {
+    HAL_ADC_IRQHandler(&hadc);
+}
 #endif
 
 // ADC Watchdog Callback for Short Circuit Protection
@@ -506,6 +511,48 @@ void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, ui
 
     // Start the ADC with DMA.
     HAL_ADC_Start_DMA(&hadc, (uint32_t*)bemf_ring_buffer, BEMF_RING_BUFFER_SIZE);
+
+#if defined(MOTOR_CURRENT_PIN)
+    // --- Injected Channel for Current Protection (F4/Standard) ---
+    // We use an Injected Channel with Analog Watchdog.
+    // Injected channels are scanned independently or via triggers, but crucially they don't
+    // mess up the Regular Group DMA buffer layout.
+
+    // Calculate Threshold
+    const float V_limit = MAX_CURRENT_AMPS * SHUNT_RESISTOR_OHMS;
+    const uint32_t adc_threshold = (uint32_t)((V_limit / 3.3f) * 4095.0f);
+
+    ADC_InjectionConfTypeDef sConfigInjected = {0};
+    sConfigInjected.InjectedChannel = STM_PIN_CHANNEL(pinmap_function(digitalPinToPinName(MOTOR_CURRENT_PIN), PinMap_ADC));
+    sConfigInjected.InjectedRank = 1;
+    sConfigInjected.InjectedNbrOfConversion = 1;
+    sConfigInjected.InjectedSamplingTime = ADC_SAMPLETIME_3CYCLES;
+    sConfigInjected.ExternalTrigInjecConvEdge = ADC_EXTERNALTRIGINJECCONVEDGE_NONE;
+    sConfigInjected.ExternalTrigInjecConv = ADC_INJECTED_SOFTWARE_START;
+    // Auto-injection allows injected group to run automatically after regular group
+    sConfigInjected.AutoInjectedConv = ENABLE;
+    sConfigInjected.InjectedDiscontinuousConvMode = DISABLE;
+    sConfigInjected.InjectedOffset = 0;
+    HAL_ADCEx_InjectedConfigChannel(&hadc, &sConfigInjected);
+
+    // Configure Analog Watchdog on the Injected Channel
+    ADC_AnalogWDGConfTypeDef AnalogWDGConfig = {0};
+    AnalogWDGConfig.WatchdogNumber = ADC_ANALOGWATCHDOG_1; // F4 usually has 1 watchdog
+    AnalogWDGConfig.WatchdogMode = ADC_ANALOGWATCHDOG_SINGLE_INJEC; // Monitor Single Injected Channel
+    AnalogWDGConfig.Channel = sConfigInjected.InjectedChannel;
+    AnalogWDGConfig.ITMode = ENABLE;
+    AnalogWDGConfig.HighThreshold = adc_threshold;
+    AnalogWDGConfig.LowThreshold = 0;
+    HAL_ADC_AnalogWDGConfig(&hadc, &AnalogWDGConfig);
+
+    // Enable ADC IRQ for Watchdog
+    HAL_NVIC_SetPriority(ADC_IRQn, 0, 0);
+    HAL_NVIC_EnableIRQ(ADC_IRQn);
+
+    // Note: AutoInjectedConv = ENABLE means injected conversion starts after regular group.
+    // Since regular group is continuous, injected should also run continuously.
+#endif
+
 #endif
 
     pwm_timer->resume();
