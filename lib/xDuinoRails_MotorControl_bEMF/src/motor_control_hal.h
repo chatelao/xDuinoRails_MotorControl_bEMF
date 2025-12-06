@@ -96,4 +96,21 @@ int hal_motor_get_bemf_buffer(volatile uint16_t** buffer, int* last_write_pos);
  */
 int hal_motor_get_current_buffer(volatile uint16_t** buffer, int* last_write_pos);
 
+/**
+ * @brief Checks the solenoid/motor position by pinging both directions and measuring the response.
+ *
+ * This function performs a diagnostic test:
+ * 1. Pings the "forward" direction (PWM A).
+ * 2. Measures the BEMF/Response immediately after switch-off.
+ * 3. Pings the "reverse" direction (PWM B).
+ * 4. Measures the BEMF/Response immediately after switch-off.
+ *
+ * @param ping_pwm_value The PWM duty cycle (0-255) for the ping pulse.
+ * @param ping_duration_ms The duration of the ping pulse in milliseconds.
+ * @param measurement_delay_us The delay after switching off before measuring the response.
+ * @param[out] response_a The measured response for the forward/A direction.
+ * @param[out] response_b The measured response for the reverse/B direction.
+ */
+void hal_motor_check_solenoid_position(int ping_pwm_value, int ping_duration_ms, int measurement_delay_us, int* response_a, int* response_b);
+
 #endif // MOTOR_CONTROL_HAL_H
