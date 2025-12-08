@@ -45,6 +45,9 @@ static void on_pwm_wrap();
 // DMA ISR: triggered when the BEMF ring buffer is full.
 // This is the core of the measurement, processing raw ADC data and passing it to the controller.
 static void dma_irq_handler() {
+    // Stop the ADC immediately to prevent sampling during the ON phase.
+    adc_run(false);
+
     // Clear the DMA interrupt flag for our channel using a bitmask.
     dma_hw->ints0 = 1u << dma_channel;
 
@@ -95,6 +98,9 @@ static int64_t delayed_adc_trigger_callback(alarm_id_t id, void *user_data) {
     adc_select_input(g_bemf_b_pin - 26);
 #endif
 
+    // Drain any stale data from the FIFO before starting a new burst.
+    adc_fifo_drain();
+
     // Start a single ADC conversion sequence that will run until the DMA buffer is full.
     adc_run(true);
     return 0; // Returning 0 prevents the timer from rescheduling.
@@ -137,8 +143,9 @@ void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, ui
     channel_config_set_read_increment(&dma_config, false);           // Read from same ADC FIFO address
     channel_config_set_write_increment(&dma_config, true);           // Write to sequential buffer addresses
     channel_config_set_dreq(&dma_config, DREQ_ADC);                  // Trigger DMA from ADC
-    // Configure a ring buffer write address. The '6' is log2(BEMF_RING_BUFFER_SIZE), i.e., log2(64).
-    channel_config_set_ring(&dma_config, true, 6);
+    // Configure a ring buffer write address. The size must be a power of 2.
+    // __builtin_ctz returns the number of trailing zeros, effectively log2 for powers of 2.
+    channel_config_set_ring(&dma_config, true, __builtin_ctz(BEMF_RING_BUFFER_SIZE));
 
     // Apply the DMA config: read from ADC FIFO, write to our ring buffer.
     dma_channel_configure(dma_channel, &dma_config, bemf_ring_buffer, &adc_hw->fifo, BEMF_RING_BUFFER_SIZE, false);
