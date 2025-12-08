@@ -29,8 +29,9 @@ static nrf_saadc_value_t saadc_raw_buffer[2];
 static const uint8_t NUM_ADC_CHANNELS = 2;
 #endif
 
-// Public BEMF buffer (strictly 2 channels [B, A] for compatibility)
-static volatile uint16_t bemf_ring_buffer[2];
+// Public BEMF buffer
+static volatile uint16_t bemf_ring_buffer[BEMF_RING_BUFFER_SIZE];
+static int bemf_write_pos = 0;
 
 // --- PPI Configuration ---
 static nrf_ppi_channel_t ppi_channel;
@@ -41,19 +42,19 @@ static uint16_t top_value;
 
 static void saadc_callback(nrfx_saadc_evt_t const * p_event) {
     if (p_event->type == NRFX_SAADC_EVT_DONE) {
-        // Copy BEMF data (first 2 channels) to the public ring buffer
-        // Note: Buffer layout depends on initialization order.
-        // We init A (ch 0), B (ch 1), then Current (ch 2).
-        // p_buffer[0] = A, p_buffer[1] = B, p_buffer[2] = Current.
-        bemf_ring_buffer[0] = p_event->data.done.p_buffer[1]; // B
-        bemf_ring_buffer[1] = p_event->data.done.p_buffer[0]; // A (Logic usually expects [B, A])
-        // Wait, current logic: `abs(buffer[0] - buffer[1])`. Order doesn't matter for diff.
-        // Diagnostics expects [B, A, B, A...].
-        // Let's store B at 0, A at 1.
+        // Copy BEMF data to ring buffer
+        // p_buffer[0] = A, p_buffer[1] = B
+
+        // Store B then A to match [B, A] interleaved format
+        bemf_ring_buffer[bemf_write_pos] = p_event->data.done.p_buffer[1]; // B
+        bemf_ring_buffer[bemf_write_pos + 1] = p_event->data.done.p_buffer[0]; // A
 
         if (bemf_callback) {
             bemf_callback(abs(p_event->data.done.p_buffer[0] - p_event->data.done.p_buffer[1]));
         }
+
+        bemf_write_pos = (bemf_write_pos + 2) % BEMF_RING_BUFFER_SIZE;
+
         // Re-trigger the ADC for the next conversion
         nrfx_saadc_buffer_convert(&saadc, saadc_raw_buffer, NUM_ADC_CHANNELS);
     }
@@ -68,7 +69,7 @@ static void saadc_callback(nrfx_saadc_evt_t const * p_event) {
     }
 }
 
-void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, uint8_t bemf_b_pin, hal_bemf_update_callback_t callback) {
+void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, uint8_t bemf_b_pin, hal_bemf_update_callback_t callback, uint32_t pwm_frequency_hz) {
     bemf_callback = callback;
 
     // --- PWM Initialization ---
@@ -91,7 +92,7 @@ void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, ui
     uint32_t prescaler_divs[] = {1, 2, 4, 8, 16, 32, 64, 128};
 
     for (size_t i = 0; i < sizeof(prescalers) / sizeof(prescalers[0]); ++i) {
-        uint32_t required_top = base_clock / (prescaler_divs[i] * PWM_FREQUENCY_HZ);
+        uint32_t required_top = base_clock / (prescaler_divs[i] * pwm_frequency_hz);
         if (required_top <= 65535) {
             pwm_config.prescaler = (nrf_pwm_prescaler_t)i;
             top_value = required_top;
@@ -176,8 +177,14 @@ void hal_motor_set_pwm(int duty_cycle, bool forward) {
 
 int hal_motor_get_bemf_buffer(volatile uint16_t** buffer, int* last_write_pos) {
     *buffer = (volatile uint16_t*)bemf_ring_buffer;
-    *last_write_pos = 0; // This is a simplified implementation
-    return 2;
+    *last_write_pos = bemf_write_pos;
+    return BEMF_RING_BUFFER_SIZE;
+}
+
+int hal_motor_get_current_buffer(volatile uint16_t** buffer, int* last_write_pos) {
+    *buffer = nullptr;
+    *last_write_pos = 0;
+    return 0;
 }
 
 #endif // ARDUINO_ARCH_NRF52

@@ -67,7 +67,7 @@ void setup() {
 
   // Initialize the motor hardware abstraction layer.
   // We provide nullptr for the BEMF callback as we don't need it.
-  hal_motor_init(MOTOR_PWM_A_PIN, MOTOR_PWM_B_PIN, MOTOR_BEMF_A_PIN, MOTOR_BEMF_B_PIN, nullptr);
+  hal_motor_init(MOTOR_PWM_A_PIN, MOTOR_PWM_B_PIN, MOTOR_BEMF_A_PIN, MOTOR_BEMF_B_PIN, nullptr, 20000);
 
   // Initial state: Stopped, Forward
   hal_motor_set_pwm(0, true);

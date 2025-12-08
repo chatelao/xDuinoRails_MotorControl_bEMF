@@ -23,9 +23,10 @@ static uint8_t g_bemf_b_pin;
 static hal_bemf_update_callback_t g_bemf_callback = nullptr;
 
 // Simulated buffer
-static volatile uint16_t s_bemf_buffer[2];
+static volatile uint16_t s_bemf_buffer[BEMF_RING_BUFFER_SIZE];
+static int s_bemf_write_pos = 0;
 
-void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, uint8_t bemf_b_pin, hal_bemf_update_callback_t callback) {
+void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, uint8_t bemf_b_pin, hal_bemf_update_callback_t callback, uint32_t pwm_frequency_hz) {
     g_pwm_a_pin = pwm_a_pin;
     g_pwm_b_pin = pwm_b_pin;
     g_bemf_a_pin = bemf_a_pin;
@@ -65,12 +66,13 @@ void hal_motor_set_pwm(int duty_cycle, bool forward) {
     // Actually, usually BEMF is measured on the OFF pin or via differential.
     // Let's just put the virtual value in the buffer.
     if (forward) {
-         s_bemf_buffer[0] = 0;
-         s_bemf_buffer[1] = virtual_bemf;
+         s_bemf_buffer[s_bemf_write_pos] = 0;
+         s_bemf_buffer[s_bemf_write_pos + 1] = virtual_bemf;
     } else {
-         s_bemf_buffer[0] = virtual_bemf;
-         s_bemf_buffer[1] = 0;
+         s_bemf_buffer[s_bemf_write_pos] = virtual_bemf;
+         s_bemf_buffer[s_bemf_write_pos + 1] = 0;
     }
+    s_bemf_write_pos = (s_bemf_write_pos + 2) % BEMF_RING_BUFFER_SIZE;
 
     // Software Short Circuit Protection
 #if defined(MOTOR_CURRENT_PIN)
@@ -95,8 +97,8 @@ void hal_motor_set_pwm(int duty_cycle, bool forward) {
 
 int hal_motor_get_bemf_buffer(volatile uint16_t** buffer, int* last_write_pos) {
     *buffer = s_bemf_buffer;
-    *last_write_pos = 0;
-    return 2;
+    *last_write_pos = s_bemf_write_pos;
+    return BEMF_RING_BUFFER_SIZE;
 }
 
 int hal_motor_get_current_buffer(volatile uint16_t** buffer, int* last_write_pos) {

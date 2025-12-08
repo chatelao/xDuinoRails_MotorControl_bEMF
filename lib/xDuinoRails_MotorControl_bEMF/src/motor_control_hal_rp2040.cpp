@@ -22,7 +22,7 @@
 
 // PWM counter wrap value, calculated from the 125MHz system clock.
 // Formula: (SystemClock / PWM_Frequency) - 1. This value determines the PWM resolution.
-static uint32_t PWM_WRAP_VALUE = (125000000 / PWM_FREQUENCY_HZ) - 1;
+static uint32_t PWM_WRAP_VALUE = 6249; // Default placeholder, updated in init
 
 //== Static Globals for Hardware Control ==
 static uint dma_channel;     // DMA channel for ADC->memory transfers
@@ -114,12 +114,15 @@ static void on_pwm_wrap() {
 
 //== Public HAL Function Implementations ==
 
-void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, uint8_t bemf_b_pin, hal_bemf_update_callback_t callback) {
+void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, uint8_t bemf_b_pin, hal_bemf_update_callback_t callback, uint32_t pwm_frequency_hz) {
     g_pwm_a_pin = pwm_a_pin;
     g_pwm_b_pin = pwm_b_pin;
     g_bemf_a_pin = bemf_a_pin;
     g_bemf_b_pin = bemf_b_pin;
     bemf_callback = callback;
+
+    // Calculate PWM Wrap Value based on frequency
+    PWM_WRAP_VALUE = (125000000 / pwm_frequency_hz) - 1;
 
     // --- ADC and DMA Setup ---
     adc_init();
@@ -242,6 +245,12 @@ int hal_motor_get_bemf_buffer(volatile uint16_t** buffer, int* last_write_pos) {
     *last_write_pos = byte_offset / sizeof(uint16_t);
 
     return BEMF_RING_BUFFER_SIZE;
+}
+
+int hal_motor_get_current_buffer(volatile uint16_t** buffer, int* last_write_pos) {
+    *buffer = nullptr;
+    *last_write_pos = 0;
+    return 0;
 }
 
 #endif // ARDUINO_ARCH_RP2040

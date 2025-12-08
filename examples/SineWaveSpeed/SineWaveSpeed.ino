@@ -42,6 +42,12 @@
         const int MOTOR_BEMF_A_PIN      =  D7;
         const int MOTOR_BEMF_B_PIN      =  D8;
     #endif
+#elif defined(ARDUINO_NUCLEO_G431RB)
+// Pins for Nucleo G431RB (Using internal OpAmps)
+const int MOTOR_PWM_A_PIN       =   D7;
+const int MOTOR_PWM_B_PIN       =   D8;
+const int MOTOR_BEMF_A_PIN      =  A1; // PA1 -> OPAMP1_VINP
+const int MOTOR_BEMF_B_PIN      =  A3; // PB0 -> OPAMP3_VINP
 #else
 // Default pins for other boards
 const int MOTOR_PWM_A_PIN       =   7;
@@ -66,7 +72,7 @@ void setup() {
   Serial.println("Sine Wave Motor Speed Control Example");
 
   // Initialize the motor hardware abstraction layer.
-  hal_motor_init(MOTOR_PWM_A_PIN, MOTOR_PWM_B_PIN, MOTOR_BEMF_A_PIN, MOTOR_BEMF_B_PIN, NULL);
+  hal_motor_init(MOTOR_PWM_A_PIN, MOTOR_PWM_B_PIN, MOTOR_BEMF_A_PIN, MOTOR_BEMF_B_PIN, NULL, 20000);
 
   // Initialize the status LED.
   status_led.begin();

@@ -150,7 +150,7 @@ void ADC_Handler() {
  *    - TC3 overflow (after 10µs) -> starts ADC conversion
  * 5. Configures the ADC to be triggered by the event system and fire an interrupt on completion.
  */
-void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, uint8_t bemf_b_pin, hal_bemf_update_callback_t callback) {
+void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, uint8_t bemf_b_pin, hal_bemf_update_callback_t callback, uint32_t pwm_frequency_hz) {
     g_pwm_a_pin = pwm_a_pin;
     g_pwm_b_pin = pwm_b_pin;
     g_bemf_a_pin = bemf_a_pin;
@@ -182,7 +182,7 @@ void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, ui
     TCC0->CTRLA.reg = TCC_CTRLA_PRESCALER_DIV1; // No prescaler, run at 48MHz
     TCC0->WAVE.reg = TCC_WAVE_WAVEGEN_NPWM; // Normal PWM mode
     while (TCC0->SYNCBUSY.bit.WAVE);
-    uint32_t period = 48000000 / PWM_FREQUENCY_HZ - 1;
+    uint32_t period = 48000000 / pwm_frequency_hz - 1;
     TCC0->PER.reg = period; // Set PWM period (wrap value)
     while (TCC0->SYNCBUSY.bit.PER);
     TCC0->EVCTRL.reg = TCC_EVCTRL_OVFEO;   // Enable overflow event output
@@ -267,6 +267,12 @@ int hal_motor_get_bemf_buffer(volatile uint16_t** buffer, int* last_write_pos) {
     *buffer = bemf_ring_buffer;
     *last_write_pos = bemf_buffer_write_pos;
     return BEMF_RING_BUFFER_SIZE;
+}
+
+int hal_motor_get_current_buffer(volatile uint16_t** buffer, int* last_write_pos) {
+    *buffer = nullptr;
+    *last_write_pos = 0;
+    return 0;
 }
 
 #endif // defined(USE_SAMD21_LOWLEVEL) && defined(ARDUINO_ARCH_SAMD)
