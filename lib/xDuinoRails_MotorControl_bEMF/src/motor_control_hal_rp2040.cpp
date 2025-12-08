@@ -63,6 +63,7 @@ static void dma_irq_handler() {
         bemf_callback(measured_bemf);
     }
     // Restart DMA transfer to refill the buffer for the next cycle.
+    dma_channel_set_trans_count(dma_channel, BEMF_RING_BUFFER_SIZE, false);
     dma_channel_set_write_addr(dma_channel, bemf_ring_buffer, true);
 }
 
@@ -242,6 +243,12 @@ int hal_motor_get_bemf_buffer(volatile uint16_t** buffer, int* last_write_pos) {
     *last_write_pos = byte_offset / sizeof(uint16_t);
 
     return BEMF_RING_BUFFER_SIZE;
+}
+
+int hal_motor_get_current_buffer(volatile uint16_t** buffer, int* last_write_pos) {
+    *buffer         = nullptr;
+    *last_write_pos = 0;
+    return 0;
 }
 
 #endif // ARDUINO_ARCH_RP2040
