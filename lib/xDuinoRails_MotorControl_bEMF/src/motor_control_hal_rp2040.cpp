@@ -20,11 +20,9 @@
 
 //== Hardware PWM & BEMF Measurement Parameters ==
 
-// PWM counter wrap value, calculated from the 125MHz system clock.
-// Formula: (SystemClock / PWM_Frequency) - 1. This value determines the PWM resolution.
-static uint32_t PWM_WRAP_VALUE = (125000000 / PWM_FREQUENCY_HZ) - 1;
-
 //== Static Globals for Hardware Control ==
+static uint16_t g_pwm_wrap_value;
+static float g_pwm_divider = 1.0f;
 static uint dma_channel;     // DMA channel for ADC->memory transfers
 static uint motor_pwm_slice; // The RP2040 PWM slice driving the motor
 // Volatile is required as this buffer is written by DMA and read by the CPU in an ISR.
@@ -83,8 +81,8 @@ static int64_t delayed_adc_trigger_callback(alarm_id_t id, void *user_data) {
     if (current_val > adc_threshold) {
         // Fast Shutdown
 #ifdef LED_EDITION
-        pwm_set_gpio_level(g_pwm_a_pin, PWM_WRAP_VALUE);
-        pwm_set_gpio_level(g_pwm_b_pin, PWM_WRAP_VALUE);
+        pwm_set_gpio_level(g_pwm_a_pin, g_pwm_wrap_value);
+        pwm_set_gpio_level(g_pwm_b_pin, g_pwm_wrap_value);
 #else
         pwm_set_gpio_level(g_pwm_a_pin, 0);
         pwm_set_gpio_level(g_pwm_b_pin, 0);
@@ -160,8 +158,26 @@ void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, ui
     // Both PWM pins must be on the same slice.
     motor_pwm_slice = pwm_gpio_to_slice_num(g_pwm_a_pin);
 
+    // Calculate PWM config
+    uint32_t system_clock = 125000000;
+    float divider = 1.0f;
+    uint32_t top = system_clock / PWM_FREQUENCY_HZ;
+
+    // RP2040 PWM Counter is 16-bit (max 65535).
+    // If 'top' exceeds this, we must use the clock divider.
+    if (top > 65535) {
+        divider = (float)top / 65535.0f;
+        // Divider is 8.4 fixed point, max ~256. We clamp to be safe.
+        if (divider > 255.0f) divider = 255.0f;
+    }
+
+    g_pwm_divider = divider;
+    // Recalculate wrap value with the divider
+    g_pwm_wrap_value = (uint16_t)(system_clock / (PWM_FREQUENCY_HZ * divider)) - 1;
+
     pwm_config motor_pwm_conf = pwm_get_default_config();
-    pwm_config_set_wrap(&motor_pwm_conf, PWM_WRAP_VALUE);
+    pwm_config_set_wrap(&motor_pwm_conf, g_pwm_wrap_value);
+    pwm_config_set_clkdiv(&motor_pwm_conf, g_pwm_divider);
     pwm_init(motor_pwm_slice, &motor_pwm_conf, true);
 
     // --- PWM Interrupt for Synchronization ---
@@ -177,37 +193,40 @@ void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, ui
 
 void hal_motor_set_pwm(int duty_cycle, bool forward) {
     // Map the 8-bit duty cycle (0-255) to the PWM counter's range.
-    uint16_t level = map(duty_cycle, 0, 255, 0, PWM_WRAP_VALUE);
+    uint16_t level = map(duty_cycle, 0, 255, 0, g_pwm_wrap_value);
 
     // Calculate timing for BEMF measurement.
     // The PWM Wrap interrupt fires at the start of the ON phase (Counter = 0).
     // The Falling Edge (transition to OFF phase) occurs at `level`.
     // We want to sample after the Falling Edge + Settling Time.
 
-    // Convert settling time from microseconds to 125MHz ticks (1 us = 125 ticks).
-    uint32_t settling_ticks = BEMF_MEASUREMENT_DELAY_US * 125;
+    // Convert settling time from microseconds to PWM ticks.
+    // 1 tick = g_pwm_divider / 125MHz.
+    // So 1 us = 125 / g_pwm_divider ticks.
+    uint32_t settling_ticks = (BEMF_MEASUREMENT_DELAY_US * 125) / g_pwm_divider;
     uint32_t trigger_tick_pos = level + settling_ticks;
 
-    // If the sampling point extends beyond the PWM period (PWM_WRAP_VALUE),
+    // If the sampling point extends beyond the PWM period (g_pwm_wrap_value),
     // it means the OFF phase is too short or non-existent (high duty cycle).
     // In this case, we skip measurement to avoid sampling during the next ON phase.
-    if (trigger_tick_pos >= PWM_WRAP_VALUE) {
+    if (trigger_tick_pos >= g_pwm_wrap_value) {
         g_skip_measurement = true;
     } else {
         g_skip_measurement = false;
         // Convert the total delay (from Wrap IRQ) back to microseconds for add_alarm_in_us.
-        g_adc_trigger_delay_us = trigger_tick_pos / 125;
+        // Time = trigger_tick_pos * (g_pwm_divider / 125)
+        g_adc_trigger_delay_us = (uint32_t)(trigger_tick_pos * g_pwm_divider / 125);
     }
 
 #ifdef LED_EDITION
     // For Active Low LEDs (Seeed XIAO RP2040 LED Edition), logic is inverted.
-    // High (PWM_WRAP_VALUE) = LED OFF.
+    // High (g_pwm_wrap_value) = LED OFF.
     // Low (0) = LED ON (Full Brightness).
     // level is the ON time (Low time).
     // Standard PWM: level = High time.
-    // To get 'level' amount of ON time (Low), we want High time = PWM_WRAP_VALUE - level.
-    uint16_t inverted_level = PWM_WRAP_VALUE - level;
-    uint16_t off_level = PWM_WRAP_VALUE; // Always High = Always OFF
+    // To get 'level' amount of ON time (Low), we want High time = g_pwm_wrap_value - level.
+    uint16_t inverted_level = g_pwm_wrap_value - level;
+    uint16_t off_level = g_pwm_wrap_value; // Always High = Always OFF
 
     if (forward) {
         pwm_set_gpio_level(g_pwm_a_pin, inverted_level);
