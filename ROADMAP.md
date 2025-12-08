@@ -4,22 +4,6 @@ This document outlines the status of supported platforms and the plan for adding
 
 ## Implemented Platforms
 
-### Seeed XIAO ESP32-S3 / ESP32-S3 Sense
-
-- [x] Implement the Hardware Abstraction Layer (HAL) for the ESP32-S3.
-- [x] Add a new PlatformIO environment for the `seeed_xiao_esp32s3` board.
-- [x] Verify that all examples compile successfully for the new platform.
-- [ ] Perform on-hardware testing and validation.
-- [x] Add documentation for the Seeed XIAO ESP32-S3.
-
-### Seeed XIAO nRF52840 / nRF52840 Sense
-
-- [x] Implement the Hardware Abstraction Layer (HAL) for the nRF52840.
-- [x] Add a new PlatformIO environment for the `seeed_xiao_nrf52840` board.
-- [x] Verify that all examples compile successfully for the new platform.
-- [ ] Perform on-hardware testing and validation.
-- [ ] Add documentation for the Seeed XIAO nRF52840.
-
 ### Seeed XIAO RP2040
 
 - [x] Implement the Hardware Abstraction Layer (HAL) for the RP2040.

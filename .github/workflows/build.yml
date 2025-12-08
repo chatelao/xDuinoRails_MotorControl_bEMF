@@ -16,16 +16,6 @@ jobs:
         platform:
           - seeed_xiao_rp2040
           - seeed_xiao_rp2040_led
-          - esp32_s2_saola
-          - seeed_xiao_esp32c3
-          - seeed_xiao_esp32s3
-          - nucleo_f446re
-          - seeed_xiao_samd21
-          - adafruit_feather_nrf52840
-          - adafruit_feather_nrf52832
-          - nucleo_g431rb
-          - nucleo_g431rb_shunt
-          - uno
         example:
           - SineWaveSpeed
         include:
@@ -77,14 +67,6 @@ jobs:
             EXTENSION="uf2"
           elif [[ "${{ matrix.platform }}" == "seeed_xiao_rp2040" ]]; then
             EXTENSION="uf2"
-          elif [[ "${{ matrix.platform }}" == "uno" ]]; then
-            EXTENSION="hex"
-          elif [[ "${{ matrix.platform }}" == *"nrf52"* ]]; then
-             if [ -f "${BUILD_DIR}/firmware.zip" ]; then
-                EXTENSION="zip"
-             else
-                EXTENSION="hex"
-             fi
           fi
 
           mv "${BUILD_DIR}/firmware.${EXTENSION}" "${FIRMWARE_BASENAME}${SUFFIX}.${EXTENSION}"
@@ -95,39 +77,6 @@ jobs:
         with:
           name: ${{ matrix.platform }}-${{ matrix.example }}-firmware
           path: ${{ steps.rename.outputs.firmware_glob }}
-
-  build-rust:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install Rust Target
-        run: rustup target add thumbv7em-none-eabihf
-
-      - name: Build Rust Firmware
-        working-directory: rust
-        run: cargo build --release
-
-      - name: Install objcopy
-        run: sudo apt-get update && sudo apt-get install -y binutils-arm-none-eabi
-
-      - name: Prepare Artifacts
-        working-directory: rust
-        run: |
-          VERSION="${{ github.ref_name }}"
-          SAFE_VERSION=$(echo "$VERSION" | tr '/' '-')
-          mkdir -p output
-          # Copy ELF
-          cp target/thumbv7em-none-eabihf/release/sine_wave_controller output/xDuinoRails_MotorControl_bEMF-${SAFE_VERSION}-SineWaveSpeed-nucleo_g431rb_rust.elf
-          # Create BIN
-          arm-none-eabi-objcopy -O binary target/thumbv7em-none-eabihf/release/sine_wave_controller output/xDuinoRails_MotorControl_bEMF-${SAFE_VERSION}-SineWaveSpeed-nucleo_g431rb_rust.bin
-
-      - name: Upload Rust artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: rust-firmware
-          path: rust/output/*
 
   simulation:
     runs-on: ubuntu-latest
@@ -158,7 +107,7 @@ jobs:
   release:
     runs-on: ubuntu-latest
     if: github.event_name == 'release'
-    needs: [build, simulation, build-rust]
+    needs: [build, simulation]
     permissions:
       contents: write
 
