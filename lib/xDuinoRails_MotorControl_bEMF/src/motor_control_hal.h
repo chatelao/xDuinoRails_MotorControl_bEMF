@@ -12,7 +12,11 @@
 #include <cstdint>
 
 // PWM frequency for the motor driver
+#ifdef LED_EDITION
+const uint32_t PWM_FREQUENCY_HZ = 10;
+#else
 const uint32_t PWM_FREQUENCY_HZ = 20000;
+#endif
 
 // Delay after the PWM cycle before triggering ADC, allows the motor coils' magnetic field to collapse.
 const uint32_t BEMF_MEASUREMENT_DELAY_US = 10;
