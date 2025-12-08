@@ -73,3 +73,45 @@ Retrieves the internal BEMF ring buffer for diagnostics and debugging.
   - `last_write_pos` (out): A pointer to an integer. This will be updated with the index of the last written sample in the buffer.
 - **Returns:**
   - The total size of the ring buffer.
+
+---
+
+### `hal_motor_get_current_buffer`
+
+```cpp
+int hal_motor_get_current_buffer(
+  volatile uint16_t** buffer,
+  int* last_write_pos
+);
+```
+
+Retrieves the Current Sensing ring buffer. Optional: Only available if enabled/supported by the platform and configuration.
+
+- **Parameters:**
+  - `buffer` (out): Pointer to the `uint16_t` pointer that will be set to the address of the buffer.
+  - `last_write_pos` (out): Pointer to an integer that will be set to the last written position.
+- **Returns:**
+  - The size of the ring buffer, or 0 if not supported.
+
+---
+
+### `hal_motor_check_solenoid_position`
+
+```cpp
+void hal_motor_check_solenoid_position(
+  int ping_pwm_value,
+  int ping_duration_ms,
+  int measurement_delay_us,
+  int* response_a,
+  int* response_b
+);
+```
+
+Checks the solenoid/motor position by pinging both directions and measuring the response. This function performs a diagnostic test by pinging the "forward" direction, measuring the BEMF response, and then repeating for the "reverse" direction.
+
+- **Parameters:**
+  - `ping_pwm_value`: The PWM duty cycle (0-255) for the ping pulse.
+  - `ping_duration_ms`: The duration of the ping pulse in milliseconds.
+  - `measurement_delay_us`: The delay after switching off before measuring the response.
+  - `response_a` (out): The measured response for the forward/A direction.
+  - `response_b` (out): The measured response for the reverse/B direction.

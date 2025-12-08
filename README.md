@@ -111,6 +111,14 @@ Sets the motor's PWM duty cycle and direction. This function updates the PWM har
 
 Retrieves the BEMF ring buffer for diagnostics. This function provides low-level access to the raw ADC sample buffer. It is intended for debugging and visualization, not for real-time control.
 
+### `int hal_motor_get_current_buffer(volatile uint16_t** buffer, int* last_write_pos)`
+
+Retrieves the optional Current Sensing ring buffer for diagnostics. This function works similarly to `hal_motor_get_bemf_buffer` but for current sensing data, if the hardware supports it.
+
+### `void hal_motor_check_solenoid_position(int ping_pwm_value, int ping_duration_ms, int measurement_delay_us, int* response_a, int* response_b)`
+
+Performs a diagnostic test to check the motor/solenoid position. It pings the motor in both directions and measures the BEMF response, allowing for basic position estimation or connection verification.
+
 ### `hal_bemf_update_callback_t`
 
 This is a `typedef` for a function pointer that is used to handle BEMF updates. A function matching this signature must be passed to `hal_motor_init`. This callback is executed from an interrupt context whenever a new differential BEMF measurement is available from the hardware.
