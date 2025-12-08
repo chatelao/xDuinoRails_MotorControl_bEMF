@@ -12,7 +12,7 @@
 #include <cstdint>
 
 // PWM frequency for the motor driver
-const uint32_t PWM_FREQUENCY_HZ = 2;
+const uint32_t PWM_FREQUENCY_HZ = 20000;
 
 // Delay after the PWM cycle before triggering ADC, allows the motor coils' magnetic field to collapse.
 const uint32_t BEMF_MEASUREMENT_DELAY_US = 10;
