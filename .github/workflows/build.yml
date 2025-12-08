@@ -65,6 +65,22 @@ jobs:
           mv "${BUILD_DIR}/firmware.${EXTENSION}" "${FIRMWARE_BASENAME}.${EXTENSION}"
           echo "firmware_glob=${FIRMWARE_BASENAME}.*" >> $GITHUB_OUTPUT
 
+      - name: Install Renode
+        run: |
+          wget https://builds.renode.io/renode-latest.linux-portable.tar.gz
+          tar -xzf renode-latest.linux-portable.tar.gz
+          mv renode_*-portable renode
+
+      - name: Run Renode Simulation
+        run: |
+          ./renode/renode --disable-xwt -e "\
+          mach create; \
+          machine LoadPlatformDescription @platforms/boards/raspberry_pi_pico.repl; \
+          sysbus LoadELF @.pio/build/${{ matrix.platform }}/firmware.elf; \
+          start; \
+          sleep 2; \
+          quit"
+
       - name: Upload firmware as artifact
         uses: actions/upload-artifact@v4
         with:
