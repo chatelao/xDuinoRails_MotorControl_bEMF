@@ -15,14 +15,6 @@ A hardware abstraction layer (HAL) for PlatformIO, designed for controlling DC m
 
 ### Supported Hardware
 *   [Seeed Studio XIAO RP2040](docs/SEEED_XIAO_RP2040.en.md)
-*   [Seeed Studio XIAO ESP32-C3](docs/SEEED_XIAO_ESP32C3.en.md)
-*   [Seeed Studio XIAO ESP32-S3](docs/SEEED_XIAO_ESP32S3.en.md)
-*   [STM32 Nucleo G431RB](docs/NUCLEO_G431RB.en.md)
-*   [STM32 Nucleo F446RE](docs/NUCLEO_F446RE.en.md)
-*   [Seeed Studio XIAO SAMD21](docs/SEEED_XIAO_SAMD21.en.md)
-*   [Adafruit Feather nRF52840](docs/ADAFRUIT_FEATHER_NRF52840.en.md)
-*   [Adafruit Feather nRF52832](docs/ADAFRUIT_FEATHER_NRF52832.en.md)
-*   [Arduino Uno](docs/ARDUINO_UNO.en.md)
 
 ## Features
 
