@@ -24,7 +24,10 @@
 static uint16_t g_pwm_wrap_value;
 static float g_pwm_divider = 1.0f;
 static uint dma_channel;     // DMA channel for ADC->memory transfers
-static uint motor_pwm_slice; // The RP2040 PWM slice driving the motor
+static uint motor_pwm_slice;     // The RP2040 PWM slice driving the motor
+static uint g_motor_pwm_slice_a; // The RP2040 PWM slice(s) driving the motor
+static uint g_motor_pwm_slice_b; // The RP2040 PWM slice(s) driving the motor
+
 // Volatile is required as this buffer is written by DMA and read by the CPU in an ISR.
 static volatile uint16_t bemf_ring_buffer[BEMF_RING_BUFFER_SIZE];
 static hal_bemf_update_callback_t bemf_callback = nullptr;
@@ -117,91 +120,107 @@ static void on_pwm_wrap() {
     }
 }
 
-//== Public HAL Function Implementations ==
+// == Public HAL Function Implementations ==
 
 void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, uint8_t bemf_b_pin, hal_bemf_update_callback_t callback) {
+
     g_pwm_a_pin = pwm_a_pin;
     g_pwm_b_pin = pwm_b_pin;
     g_bemf_a_pin = bemf_a_pin;
     g_bemf_b_pin = bemf_b_pin;
-    bemf_callback = callback;
 
-    // --- ADC and DMA Setup ---
-    adc_init();
-    adc_gpio_init(bemf_b_pin);
-    adc_gpio_init(bemf_a_pin);
-    // Configure ADC for round-robin sampling. The bitmask `(1u << N)` selects ADC channel N.
-    // Arduino pins A0-A3 map to ADC0-3 (GPIO 26-29), so `pin - 26` converts GPIO to ADC channel.
-    adc_set_round_robin((1u << (bemf_b_pin - 26)) | (1u << (bemf_a_pin - 26)));
-    adc_select_input(bemf_b_pin - 26);
-    // Configure the ADC FIFO to generate a DMA request (DREQ) for every sample.
-    adc_fifo_setup(true, true, 1, false, false);
-
-    dma_channel = dma_claim_unused_channel(true);
-    dma_channel_config dma_config = dma_channel_get_default_config(dma_channel);
-    channel_config_set_transfer_data_size(&dma_config, DMA_SIZE_16); // 16-bit ADC samples
-    channel_config_set_read_increment(&dma_config, false);           // Read from same ADC FIFO address
-    channel_config_set_write_increment(&dma_config, true);           // Write to sequential buffer addresses
-    channel_config_set_dreq(&dma_config, DREQ_ADC);                  // Trigger DMA from ADC
-    // Configure a ring buffer write address. The size must be a power of 2.
-    // __builtin_ctz returns the number of trailing zeros, effectively log2 for powers of 2.
-    channel_config_set_ring(&dma_config, true, __builtin_ctz(BEMF_RING_BUFFER_SIZE));
-
-    // Apply the DMA config: read from ADC FIFO, write to our ring buffer.
-    dma_channel_configure(dma_channel, &dma_config, bemf_ring_buffer, &adc_hw->fifo, BEMF_RING_BUFFER_SIZE, false);
-    // Set up the DMA interrupt handler.
-    dma_channel_set_irq0_enabled(dma_channel, true);
-    irq_set_exclusive_handler(DMA_IRQ_0, dma_irq_handler);
-    irq_set_enabled(DMA_IRQ_0, true);
-
-    // --- Short Circuit Protection Setup ---
-#if defined(MOTOR_CURRENT_PIN)
-    adc_gpio_init(MOTOR_CURRENT_PIN);
-#endif
-
-    // --- PWM Setup for Motor Control ---
+    // --- PWM Setup ---
     gpio_set_function(g_pwm_a_pin, GPIO_FUNC_PWM);
     gpio_set_function(g_pwm_b_pin, GPIO_FUNC_PWM);
-    // Both PWM pins must be on the same slice.
-    motor_pwm_slice = pwm_gpio_to_slice_num(g_pwm_a_pin);
 
-    // Calculate PWM config
+    // Wichtig: Initialwerte setzen, um unerwartetes Anlaufen zu verhindern
+    pwm_set_gpio_level(g_pwm_a_pin, 0);
+    pwm_set_gpio_level(g_pwm_b_pin, 0);
+
+    // Config calculation (Original logic preserved, looks okay for standard use)
     uint32_t system_clock = 125000000;
     float divider = 1.0f;
     uint32_t top = system_clock / PWM_FREQUENCY_HZ;
 
-    // RP2040 PWM Counter is 16-bit (max 65535).
-    // If 'top' exceeds this, we must use the clock divider.
     if (top > 65535) {
         divider = (float)top / 65535.0f;
-        // Divider is 8.4 fixed point, max ~256. We clamp to be safe.
         if (divider > 255.0f) divider = 255.0f;
     }
-
+    
     g_pwm_divider = divider;
-    // Recalculate wrap value with the divider
     g_pwm_wrap_value = (uint16_t)(system_clock / (PWM_FREQUENCY_HZ * divider)) - 1;
 
     pwm_config motor_pwm_conf = pwm_get_default_config();
-    pwm_config_set_wrap(&motor_pwm_conf, g_pwm_wrap_value);
     pwm_config_set_clkdiv(&motor_pwm_conf, g_pwm_divider);
-    pwm_init(motor_pwm_slice, &motor_pwm_conf, true);
+    pwm_config_set_wrap(  &motor_pwm_conf, g_pwm_wrap_value);
+      
+    // Apply the configuration
+    g_motor_pwm_slice_a = pwm_gpio_to_slice_num(g_pwm_a_pin);
+    g_motor_pwm_slice_b = pwm_gpio_to_slice_num(g_pwm_b_pin);
+    pwm_init(g_motor_pwm_slice_a, &motor_pwm_conf, true);
+    pwm_init(g_motor_pwm_slice_b, &motor_pwm_conf, true);
 
-    // --- PWM Interrupt for Synchronization ---
-    pwm_clear_irq(motor_pwm_slice);
-    // Enable the interrupt that fires when the PWM counter wraps.
-    pwm_set_irq_enabled(motor_pwm_slice, true);
-    irq_set_exclusive_handler(PWM_IRQ_WRAP, on_pwm_wrap);
-    irq_set_enabled(PWM_IRQ_WRAP, true);
+    /*
+    bemf_callback = callback;
 
-    // Start the DMA, which will now wait for the first ADC trigger.
+    // --- Safety Checks ---
+    // Sicherstellen, dass beide PWM Pins auf demselben Slice liegen
+    assert(pwm_gpio_to_slice_num(pwm_a_pin) == pwm_gpio_to_slice_num(pwm_b_pin));
+
+    // --- ADC and DMA Setup ---
+    adc_init();
+    adc_gpio_init(bemf_a_pin);
+    adc_gpio_init(bemf_b_pin);
+
+    // Round Robin Setup
+    // KORREKTUR: Input Select sollte deterministisch auf den niedrigeren Kanal gesetzt werden,
+    // damit die Sequenz immer [Low_Ch, High_Ch, Low_Ch...] ist und nicht zufällig startet.
+    uint8_t adc_ch_a = bemf_a_pin - 26;
+    uint8_t adc_ch_b = bemf_b_pin - 26;
+    adc_select_input(adc_ch_a < adc_ch_b ? adc_ch_a : adc_ch_b);
+    
+    adc_set_round_robin((1u << adc_ch_a) | (1u << adc_ch_b));
+    
+    // FIFO leeren, um Kanalverschiebung zu vermeiden
+    adc_fifo_drain();
+    adc_fifo_setup(true, true, 1, false, false);
+
+    dma_channel = dma_claim_unused_channel(true);
+    dma_channel_config dma_config = dma_channel_get_default_config(dma_channel);
+    channel_config_set_transfer_data_size(&dma_config, DMA_SIZE_16); 
+    channel_config_set_read_increment(&dma_config, false);           
+    channel_config_set_write_increment(&dma_config, true);           
+    channel_config_set_dreq(&dma_config, DREQ_ADC);                  
+
+    // KORREKTUR 2: Ring-Buffer Größe in Bytes berechnen!
+    // __builtin_ctz liefert trailing zeros. 
+    // Bei 1024 Elementen (uint16) sind es 2048 Bytes. log2(2048) = 11.
+    channel_config_set_ring(&dma_config, true, __builtin_ctz(BEMF_RING_BUFFER_SIZE * sizeof(uint16_t)));
+
+    dma_channel_configure(dma_channel, &dma_config, bemf_ring_buffer, &adc_hw->fifo, BEMF_RING_BUFFER_SIZE, false);
+
+    // KORREKTUR 3: IRQ Handling
+    // Exclusive Handler ist okay, wenn du die volle Kontrolle hast. 
+    // Shared Handler wäre sicherer in großen Systemen.
+    dma_channel_set_irq0_enabled(dma_channel, true);
+    irq_set_exclusive_handler(DMA_IRQ_0, dma_irq_handler);
+    irq_set_enabled(DMA_IRQ_0, true);
+
+    // --- Sync & Start ---
+    // Start DMA first -> Waiting for DREQ
     dma_channel_set_write_addr(dma_channel, bemf_ring_buffer, true);
+    
+    // ADC starten (Free Running - oder besser: via PWM getriggert in späterer Ausbaustufe)
+    adc_run(true); 
+    */
 }
 
 void hal_motor_set_pwm(int duty_cycle, bool forward) {
+
     // Map the 8-bit duty cycle (0-255) to the PWM counter's range.
     uint16_t level = map(duty_cycle, 0, 255, 0, g_pwm_wrap_value);
 
+/*
     // Calculate timing for BEMF measurement.
     // The PWM Wrap interrupt fires at the start of the ON phase (Counter = 0).
     // The Falling Edge (transition to OFF phase) occurs at `level`.
@@ -224,35 +243,19 @@ void hal_motor_set_pwm(int duty_cycle, bool forward) {
         // Time = trigger_tick_pos * (g_pwm_divider / 125)
         g_adc_trigger_delay_us = (uint32_t)(trigger_tick_pos * g_pwm_divider / 125);
     }
+*/
 
-#ifdef LED_EDITION
-    // For Active Low LEDs (Seeed XIAO RP2040 LED Edition), logic is inverted.
-    // High (g_pwm_wrap_value) = LED OFF.
-    // Low (0) = LED ON (Full Brightness).
-    // level is the ON time (Low time).
-    // Standard PWM: level = High time.
-    // To get 'level' amount of ON time (Low), we want High time = g_pwm_wrap_value - level.
-    uint16_t inverted_level = g_pwm_wrap_value - level;
-    uint16_t off_level = g_pwm_wrap_value; // Always High = Always OFF
-
+    // For Active Low LEDs (Seeed XIAO RP2040 LED Edition), logic is inverted:
+    // - High (g_pwm_wrap_value) = LED OFF.
+    // - Low (0) = LED ON (Full Brightness).
+    // - level is the ON time (Low time).
     if (forward) {
-        pwm_set_gpio_level(g_pwm_a_pin, inverted_level);
-        pwm_set_gpio_level(g_pwm_b_pin, off_level);
+       pwm_set_gpio_level(g_pwm_a_pin, g_pwm_wrap_value - level);
+       pwm_set_gpio_level(g_pwm_b_pin, g_pwm_wrap_value - 1); // OFF
     } else {
-        pwm_set_gpio_level(g_pwm_a_pin, off_level);
-        pwm_set_gpio_level(g_pwm_b_pin, inverted_level);
-    }
-#else
-    if (forward) {
-        // For forward, PWM is applied to pin A and pin B is held low.
-        pwm_set_gpio_level(g_pwm_a_pin, level);
-        pwm_set_gpio_level(g_pwm_b_pin, 0);
-    } else {
-        // For reverse, pin A is held low and PWM is applied to pin B.
-        pwm_set_gpio_level(g_pwm_a_pin, 0);
-        pwm_set_gpio_level(g_pwm_b_pin, level);
-    }
-#endif
+       pwm_set_gpio_level(g_pwm_a_pin, g_pwm_wrap_value - 1); // OFF
+       pwm_set_gpio_level(g_pwm_b_pin, g_pwm_wrap_value - level);
+   }
 }
 
 int hal_motor_get_bemf_buffer(volatile uint16_t** buffer, int* last_write_pos) {
