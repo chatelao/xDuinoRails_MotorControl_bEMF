@@ -120,6 +120,15 @@ static void on_pwm_wrap() {
     }
 }
 
+#endif USE_IRQ_TRIGGER
+// *** MODUS B: Software IRQ Trigger ***
+void on_pwm_wrap() {
+    pwm_clear_irq(pwm_slice_num);
+    // ADC Starten (Direkter Registerzugriff für Speed)
+    hw_set_bits(&adc_hw->cs, ADC_CS_START_ONCE_BITS);
+}
+#endif USE_IRQ_TRIGGER
+
 // == Public HAL Function Implementations ==
 
 void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, uint8_t bemf_b_pin, hal_bemf_update_callback_t callback) {
@@ -173,6 +182,39 @@ void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, ui
     pwm_init(g_motor_pwm_slice_a, &motor_pwm_conf, false);
     pwm_init(g_motor_pwm_slice_b, &motor_pwm_conf, false);
 
+#ifdef USE_DMA_TRIGGER
+    // Hinweis: PWM sendet DREQ automatisch bei Wrap. Kein Enable-Bit nötig.
+    int trig_chan = dma_claim_unused_channel(true);
+    dma_channel_config dma_config = dma_channel_get_default_config(trig_chan);
+
+    channel_config_set_transfer_data_size(&dma_config, DMA_SIZE_32); // 32 Bit Register schreiben
+    channel_config_set_read_increment(    &dma_config, false);       // Quelle fix
+    channel_config_set_write_increment(   &dma_config, false);       // Ziel fix
+    
+    // Trigger auf PWM Wrap (Timer) setzen
+    channel_config_set_dreq(&dma_config, dma_get_timer_dreq(dma_map_dreq_pwm_wrap(g_motor_pwm_slice_a)));
+
+    // *** MODUS A: Hardware DMA Trigger ***
+    const uint32_t adc_start_cmd = ADC_CS_START_ONCE_BITS | (ADC_CHANNEL << ADC_CS_AINSEL_LSB);    
+    dma_channel_configure(
+        trig_chan,
+        &dma_config,
+        &adc_hw->cs,        // Ziel: ADC Control Register (startet Konversion)
+        &adc_start_cmd,     // Quelle: Unser Start-Befehl
+        0xFFFFFFFF,         // Anzahl: "Unendlich"
+        true                // Start
+    );
+}
+
+#endif
+    
+#ifdef USE_IRQ_TRIGGER
+    pwm_clear_irq(g_motor_pwm_slice_a);
+    pwm_set_irq_enabled(g_motor_pwm_slice_a, true);
+    irq_set_exclusive_handler(PWM_IRQ_WRAP, on_pwm_wrap);
+    irq_set_enabled(PWM_IRQ_WRAP, true);
+#endif
+    
     // Start both slices exactly synchronous
     uint32_t mask = (1u << g_motor_pwm_slice_a) | (1u << g_motor_pwm_slice_b);
     pwm_set_mask_enabled(mask);
