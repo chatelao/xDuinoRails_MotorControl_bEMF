@@ -54,7 +54,8 @@ jobs:
         run: |
           wget https://builds.renode.io/renode-latest.linux-portable.tar.gz
           tar -xzf renode-latest.linux-portable.tar.gz
-          mv renode_*-portable renode_portable
+          rm renode-latest.linux-portable.tar.gz
+          mv renode_*_portable renode_portable
           echo "$PWD/renode_portable" >> $GITHUB_PATH
 
       - name: Run Renode Simulation
