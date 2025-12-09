@@ -16,7 +16,6 @@
 
 #include <Arduino.h>
 #include "motor_control_hal.h"
-#include "StatusLED.h"
 
 #if defined(ARDUINO_SEEED_XIAO_RP2040)
 #include <Adafruit_NeoPixel.h>
@@ -52,11 +51,6 @@ const int MOTOR_BEMF_A_PIN      =  A3;
 const int MOTOR_BEMF_B_PIN      =  A2;
 #endif
 
-const int STATUS_LED_PIN        = LED_BUILTIN;
-
-// --- Status LED Instance ---
-StatusLED status_led(STATUS_LED_PIN);
-
 // --- Sine Wave Parameters ---
 const float SINE_WAVE_PERIOD    = 2500; // 2.5 seconds in milliseconds
 const int MIN_PWM_DUTY_CYCLE    =    0;   // 0% of 255
@@ -69,10 +63,6 @@ void setup() {
 
   // Initialize the motor hardware abstraction layer.
   hal_motor_init(MOTOR_PWM_A_PIN, MOTOR_PWM_B_PIN, MOTOR_BEMF_A_PIN, MOTOR_BEMF_B_PIN, NULL);
-
-  // Initialize the status LED.
-  status_led.begin();
-  status_led.on();
 
 #if defined(ARDUINO_SEEED_XIAO_RP2040)
   // Initialize Neopixel
@@ -108,9 +98,6 @@ void loop() {
   }
   pixels.show();
 #endif
-
-  // Update the status LED.
-  status_led.update();
 
   // Print the current PWM value for debugging.
   Serial.print("PWM: ");
