@@ -69,7 +69,7 @@ jobs:
         run: |
           wget https://builds.renode.io/renode-latest.linux-portable.tar.gz
           tar -xzf renode-latest.linux-portable.tar.gz
-          mv renode_*-portable renode
+          mv renode_*_portable renode
 
       - name: Run Renode Simulation
         run: |
