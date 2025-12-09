@@ -130,12 +130,15 @@ void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, ui
     g_bemf_b_pin = bemf_b_pin;
 
     // --- PWM Setup ---
-    gpio_set_function(g_pwm_a_pin, GPIO_FUNC_PWM);
-    gpio_set_function(g_pwm_b_pin, GPIO_FUNC_PWM);
+    gpio_set_function( g_pwm_a_pin, GPIO_FUNC_PWM );
+    gpio_set_function( g_pwm_b_pin, GPIO_FUNC_PWM );
+    
+    gpio_set_outover(  g_pwm_b_pin, GPIO_OVERRIDE_INVERT);
+    gpio_set_outover(  g_pwm_a_pin, GPIO_OVERRIDE_INVERT);
 
-    // Wichtig: Initialwerte setzen, um unerwartetes Anlaufen zu verhindern
-    pwm_set_gpio_level(g_pwm_a_pin, 0);
-    pwm_set_gpio_level(g_pwm_b_pin, 0);
+    // IMPORTANT: Set initial values to avoid unexpected start of the motor
+    pwm_set_gpio_level(g_pwm_a_pin, 65535);
+    pwm_set_gpio_level(g_pwm_b_pin, 65535);
 
     // Config calculation (Original logic preserved, looks okay for standard use)
     uint32_t system_clock = 125000000;
@@ -151,8 +154,10 @@ void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, ui
     g_pwm_wrap_value = (uint16_t)(system_clock / (PWM_FREQUENCY_HZ * divider)) - 1;
 
     pwm_config motor_pwm_conf = pwm_get_default_config();
-    pwm_config_set_clkdiv(&motor_pwm_conf, g_pwm_divider);
-    pwm_config_set_wrap(  &motor_pwm_conf, g_pwm_wrap_value);
+    pwm_config_set_clkdiv(        &motor_pwm_conf, g_pwm_divider );
+    pwm_config_set_wrap(          &motor_pwm_conf, g_pwm_wrap_value );    
+    // Phase correction: the pulse is centered -> Wrap (DREQ) is in the midlle of "LOW"
+    pwm_config_set_phase_correct( &motor_pwm_conf, true );
       
     // Apply the configuration
     g_motor_pwm_slice_a = pwm_gpio_to_slice_num(g_pwm_a_pin);
