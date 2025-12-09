@@ -124,12 +124,14 @@ static void on_pwm_wrap() {
 
 void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, uint8_t bemf_b_pin, hal_bemf_update_callback_t callback) {
 
-    g_pwm_a_pin = pwm_a_pin;
-    g_pwm_b_pin = pwm_b_pin;
+    // ---
+    // --- PWM Setup ---
+    // ---   
+    g_pwm_a_pin  = pwm_a_pin;
+    g_pwm_b_pin  = pwm_b_pin;
     g_bemf_a_pin = bemf_a_pin;
     g_bemf_b_pin = bemf_b_pin;
 
-    // --- PWM Setup ---
     gpio_set_function( g_pwm_a_pin, GPIO_FUNC_PWM );
     gpio_set_function( g_pwm_b_pin, GPIO_FUNC_PWM );
     
@@ -162,9 +164,19 @@ void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, ui
     // Apply the configuration
     g_motor_pwm_slice_a = pwm_gpio_to_slice_num(g_pwm_a_pin);
     g_motor_pwm_slice_b = pwm_gpio_to_slice_num(g_pwm_b_pin);
-    pwm_init(g_motor_pwm_slice_a, &motor_pwm_conf, true);
-    pwm_init(g_motor_pwm_slice_b, &motor_pwm_conf, true);
+    
+    // Set the counter of both slices to zero to run synchronous
+    pwm_set_counter(g_motor_pwm_slice_a, 0);
+    pwm_set_counter(g_motor_pwm_slice_b, 0);
 
+    // Init both slices WITHOUT starting (yet) to be synchronus below
+    pwm_init(g_motor_pwm_slice_a, &motor_pwm_conf, false);
+    pwm_init(g_motor_pwm_slice_b, &motor_pwm_conf, false);
+
+    // Start both slices exactly synchronous
+    uint32_t mask = (1u << g_motor_pwm_slice_a) | (1u << g_motor_pwm_slice_b);
+    pwm_set_mask_enabled(mask);
+        
     /*
     bemf_callback = callback;
 
@@ -223,43 +235,15 @@ void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, ui
 void hal_motor_set_pwm(int duty_cycle, bool forward) {
 
     // Map the 8-bit duty cycle (0-255) to the PWM counter's range.
-    uint16_t level = map(duty_cycle, 0, 255, 0, g_pwm_wrap_value);
+    // - As the pins are inverted, invert the mapping too.
+    uint16_t level = map(duty_cycle, 0, 255, g_pwm_wrap_value, 0);
 
-/*
-    // Calculate timing for BEMF measurement.
-    // The PWM Wrap interrupt fires at the start of the ON phase (Counter = 0).
-    // The Falling Edge (transition to OFF phase) occurs at `level`.
-    // We want to sample after the Falling Edge + Settling Time.
-
-    // Convert settling time from microseconds to PWM ticks.
-    // 1 tick = g_pwm_divider / 125MHz.
-    // So 1 us = 125 / g_pwm_divider ticks.
-    uint32_t settling_ticks = (BEMF_MEASUREMENT_DELAY_US * 125) / g_pwm_divider;
-    uint32_t trigger_tick_pos = level + settling_ticks;
-
-    // If the sampling point extends beyond the PWM period (g_pwm_wrap_value),
-    // it means the OFF phase is too short or non-existent (high duty cycle).
-    // In this case, we skip measurement to avoid sampling during the next ON phase.
-    if (trigger_tick_pos >= g_pwm_wrap_value) {
-        g_skip_measurement = true;
-    } else {
-        g_skip_measurement = false;
-        // Convert the total delay (from Wrap IRQ) back to microseconds for add_alarm_in_us.
-        // Time = trigger_tick_pos * (g_pwm_divider / 125)
-        g_adc_trigger_delay_us = (uint32_t)(trigger_tick_pos * g_pwm_divider / 125);
-    }
-*/
-
-    // For Active Low LEDs (Seeed XIAO RP2040 LED Edition), logic is inverted:
-    // - High (g_pwm_wrap_value) = LED OFF.
-    // - Low (0) = LED ON (Full Brightness).
-    // - level is the ON time (Low time).
     if (forward) {
-       pwm_set_gpio_level(g_pwm_a_pin, g_pwm_wrap_value - level);
-       pwm_set_gpio_level(g_pwm_b_pin, g_pwm_wrap_value - 1); // OFF
+       pwm_set_gpio_level(g_pwm_a_pin, level);
+       pwm_set_gpio_level(g_pwm_b_pin, 0); // OFF
     } else {
-       pwm_set_gpio_level(g_pwm_a_pin, g_pwm_wrap_value - 1); // OFF
-       pwm_set_gpio_level(g_pwm_b_pin, g_pwm_wrap_value - level);
+       pwm_set_gpio_level(g_pwm_a_pin, 0); // OFF
+       pwm_set_gpio_level(g_pwm_b_pin, level);
    }
 }
 
