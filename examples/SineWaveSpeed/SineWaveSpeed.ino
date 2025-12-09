@@ -18,30 +18,32 @@
 #include "motor_control_hal.h"
 
 #if defined(ARDUINO_SEEED_XIAO_RP2040)
-#include <Adafruit_NeoPixel.h>
-#endif
 
-// --- Pin Definitions ---
-#if defined(ARDUINO_SEEED_XIAO_RP2040)
     // --- Neopixel LED ---
-    #define NEOPIXEL_PIN 12
-    #define NEOPIXEL_POWER_PIN 11
-    Adafruit_NeoPixel pixels(1, NEOPIXEL_PIN, NEO_GRB + NEO_KHZ800);
+    #include <Adafruit_NeoPixel.h>
+    #define NEOPIXEL_DATA_PIN  12   // Data pin for on-bard neopixel
+    #define NEOPIXEL_POWER_PIN 11   // Power-On pin for on-bard neopixel
+    #define NEOPIXEL_BIGHTNESS 10   // Keep the NEOPIXEL just dark enough
 
-    #ifdef LED_EDITION
-        // For Seeed XIAO RP2040 "LED Edition"
-        const int MOTOR_PWM_A_PIN       = 17; // LED Red   , PWM slice 0, channel A
-        const int MOTOR_PWM_B_PIN       = 16; // LED Green , PWM slice 0, channel B
-        const int LED_THIRD             = 25; // LED Blue  , just turn dark please
+    Adafruit_NeoPixel pixels(1, NEOPIXEL_DATA_PIN, NEO_GRB + NEO_KHZ800);
 
-        const int MOTOR_BEMF_A_PIN      = D7;
-        const int MOTOR_BEMF_B_PIN      = D8;
-    #else
+
+    #ifndef LED_EDITION
         // For standard Seeed XIAO RP2040
         const int MOTOR_PWM_A_PIN       =  D9;
         const int MOTOR_PWM_B_PIN       = D10;
-        const int MOTOR_BEMF_A_PIN      =  D7;
-        const int MOTOR_BEMF_B_PIN      =  D8;
+
+        const int MOTOR_BEMF_A_PIN      = A2; // GPIO28
+        const int MOTOR_BEMF_B_PIN      = A3; // GPIO29
+    #else
+        // For Seeed XIAO RP2040 "LED Edition"
+        const int MOTOR_PWM_A_PIN       = 17; // LED Red   , PWM slice 0, channel A
+        const int MOTOR_PWM_B_PIN       = 16; // LED Green , PWM slice 0, channel B
+
+        const int MOTOR_BEMF_A_PIN      = A2; // GPIO28
+        const int MOTOR_BEMF_B_PIN      = A3; // GPIO29
+
+        const int THIRD_LED_PIN         = 25; // LED Blue  , just turn dark please
     #endif
 #else
 // Default pins for other boards
@@ -65,12 +67,19 @@ void setup() {
   hal_motor_init(MOTOR_PWM_A_PIN, MOTOR_PWM_B_PIN, MOTOR_BEMF_A_PIN, MOTOR_BEMF_B_PIN, NULL);
 
 #if defined(ARDUINO_SEEED_XIAO_RP2040)
+
+  #ifdef LED_EDITION
+    pinMode(THIRD_LED_PIN, OUTPUT);
+    digitalWrite(THIRD_LED_PIN, HIGH);
+  #endif
+
   // Initialize Neopixel
   pinMode(NEOPIXEL_POWER_PIN, OUTPUT);
   digitalWrite(NEOPIXEL_POWER_PIN, HIGH);
+
   delay(10); // Wait for power to stabilize
   pixels.begin();
-  pixels.setPixelColor(0, pixels.Color(0, 0, 255)); // Blue to indicate SineWave mode
+  pixels.setPixelColor(0, pixels.Color(0, 0, NEOPIXEL_BIGHTNESS)); // Blue to indicate SineWave mode
   pixels.show();
 #endif
 }
@@ -92,9 +101,9 @@ void loop() {
 #if defined(ARDUINO_SEEED_XIAO_RP2040)
   // Indicate motor direction with color (Green for Forward, Red for Backward)
   if (motorDirection) {
-    pixels.setPixelColor(0, pixels.Color(0, 255, 0));
+    pixels.setPixelColor(0, pixels.Color(0, NEOPIXEL_BIGHTNESS, 0));
   } else {
-    pixels.setPixelColor(0, pixels.Color(255, 0, 0));
+    pixels.setPixelColor(0, pixels.Color(NEOPIXEL_BIGHTNESS, 0, 0));
   }
   pixels.show();
 #endif
