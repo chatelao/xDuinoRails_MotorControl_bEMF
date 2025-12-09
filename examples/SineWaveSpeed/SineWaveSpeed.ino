@@ -31,8 +31,10 @@
 
     #ifdef LED_EDITION
         // For Seeed XIAO RP2040 "LED Edition"
-        const int MOTOR_PWM_A_PIN       = 17; // Red LED
-        const int MOTOR_PWM_B_PIN       = 16; // Green LED
+        const int MOTOR_PWM_A_PIN       = 17; // LED Red   , PWM slice 0, channel A
+        const int MOTOR_PWM_B_PIN       = 16; // LED Green , PWM slice 0, channel B
+        const int LED_THIRD             = 25; // LED Blue  , just turn dark please
+
         const int MOTOR_BEMF_A_PIN      = D7;
         const int MOTOR_BEMF_B_PIN      = D8;
     #else
@@ -90,8 +92,9 @@ void loop() {
   // Calculate the sine wave value.
   float sineValue = sin(2 * PI * (elapsedTime / SINE_WAVE_PERIOD));
 
-  // Map the sine value (-1 to 1) to the PWM range (MIN_PWM to MAX_PWM).
-  int pwmValue = map(sineValue * 1000, -1000, 1000, MIN_PWM_DUTY_CYCLE, MAX_PWM_DUTY_CYCLE);
+  // Map the sine value (-1 to 1) to the direction and PWM range (MIN_PWM to MAX_PWM).
+  motorDirection = sineValue > 0.0;  // Motor direction: true for forward
+  int pwmValue = map( abs(sineValue) * 1000, 0, 1000, MIN_PWM_DUTY_CYCLE, MAX_PWM_DUTY_CYCLE);
 
   // Set the motor PWM.
   hal_motor_set_pwm(pwmValue, motorDirection);
