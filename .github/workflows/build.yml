@@ -49,6 +49,20 @@ jobs:
           PIOPROJECT_SRC_DIR: examples/${{ matrix.example }}
         run: pio run -e ${{ matrix.platform }}
 
+      - name: Install Renode
+        if: matrix.platform == 'seeed_xiao_rp2040_led' && matrix.example == 'SineWaveSpeed'
+        run: |
+          wget https://builds.renode.io/renode-latest.linux-portable.tar.gz
+          tar -xzf renode-latest.linux-portable.tar.gz
+          rm renode-latest.linux-portable.tar.gz
+          mv renode_*_portable renode_portable
+          echo "$PWD/renode_portable" >> $GITHUB_PATH
+
+      - name: Run Renode Simulation
+        if: matrix.platform == 'seeed_xiao_rp2040_led' && matrix.example == 'SineWaveSpeed'
+        run: |
+          renode --disable-xwt --console -e "mach create 'rp2040'; machine LoadPlatformDescription @platforms/boards/raspberry_pi_pico.repl; sysbus LoadELF @.pio/build/${{ matrix.platform }}/firmware.elf; start; sleep 2; quit"
+
       - name: Rename Firmware and Set Path
         id: rename
         run: |
