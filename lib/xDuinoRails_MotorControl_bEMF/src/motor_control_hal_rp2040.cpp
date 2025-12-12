@@ -119,13 +119,8 @@ static int64_t delayed_adc_trigger_callback(alarm_id_t id, void *user_data) {
 
     if (current_val > adc_threshold) {
         // Fast Shutdown
-#ifdef LED_EDITION
-        pwm_set_gpio_level(ctx->pwm_a_pin, ctx->pwm_wrap_value);
-        pwm_set_gpio_level(ctx->pwm_b_pin, ctx->pwm_wrap_value);
-#else
         pwm_set_gpio_level(ctx->pwm_a_pin, 0);
         pwm_set_gpio_level(ctx->pwm_b_pin, 0);
-#endif
         return 0;
     }
 
