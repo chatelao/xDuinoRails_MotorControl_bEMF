@@ -64,6 +64,7 @@ void setup() {
   Serial.println("Sine Wave Motor Speed Control Example");
 
   // Initialize the motor hardware abstraction layer.
+  // Using default motor_id = 0 (Implicit)
   hal_motor_init(MOTOR_PWM_A_PIN, MOTOR_PWM_B_PIN, MOTOR_BEMF_A_PIN, MOTOR_BEMF_B_PIN, NULL);
 
 #if defined(ARDUINO_SEEED_XIAO_RP2040)
@@ -96,6 +97,7 @@ void loop() {
   int pwmValue = map( abs(sineValue) * 1000, 0, 1000, MIN_PWM_DUTY_CYCLE, MAX_PWM_DUTY_CYCLE);
 
   // Set the motor PWM.
+  // Using default motor_id = 0 (Implicit)
   hal_motor_set_pwm(pwmValue, motorDirection);
 
 #if defined(ARDUINO_SEEED_XIAO_RP2040)
