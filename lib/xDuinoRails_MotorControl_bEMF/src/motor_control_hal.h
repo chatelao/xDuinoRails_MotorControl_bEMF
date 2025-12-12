@@ -11,6 +11,11 @@
 
 #include <cstdint>
 
+// Maximum number of motors supported by the library
+#ifndef MAX_MOTORS
+#define MAX_MOTORS 2
+#endif
+
 // PWM frequency for the motor driver
 #ifdef LED_EDITION
 const uint32_t PWM_FREQUENCY_HZ      = 10;
@@ -59,8 +64,9 @@ typedef void (*hal_bemf_update_callback_t)(int raw_bemf_value);
  * @param bemf_b_pin The GPIO pin number for ADC input connected to motor terminal B.
  * @param callback A pointer to a function that will be called from an interrupt
  *                 context with new BEMF data.
+ * @param motor_id The index of the motor to control (0 to MAX_MOTORS-1). Defaults to 0.
  */
-void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, uint8_t bemf_b_pin, hal_bemf_update_callback_t callback);
+void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, uint8_t bemf_b_pin, hal_bemf_update_callback_t callback, uint8_t motor_id = 0);
 
 /**
  * @brief Sets the motor's PWM duty cycle and direction.
@@ -71,8 +77,9 @@ void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, ui
  *
  * @param duty_cycle The desired duty cycle, typically in a range from 0 to 255.
  * @param forward The desired motor direction (true for forward, false for reverse).
+ * @param motor_id The index of the motor to control (0 to MAX_MOTORS-1). Defaults to 0.
  */
-void hal_motor_set_pwm(int duty_cycle, bool forward);
+void hal_motor_set_pwm(int duty_cycle, bool forward, uint8_t motor_id = 0);
 
 /**
  * @brief Retrieves the BEMF ring buffer for diagnostics.
@@ -85,9 +92,10 @@ void hal_motor_set_pwm(int duty_cycle, bool forward);
  *                    address of the internal ring buffer.
  * @param[out] last_write_pos A pointer to an integer that will be set to the
  *                            last written position in the buffer.
+ * @param motor_id The index of the motor to control (0 to MAX_MOTORS-1). Defaults to 0.
  * @return The total size of the ring buffer (number of samples).
  */
-int hal_motor_get_bemf_buffer(volatile uint16_t** buffer, int* last_write_pos);
+int hal_motor_get_bemf_buffer(volatile uint16_t** buffer, int* last_write_pos, uint8_t motor_id = 0);
 
 /**
  * @brief Retrieves the Current Sensing ring buffer.
@@ -96,9 +104,10 @@ int hal_motor_get_bemf_buffer(volatile uint16_t** buffer, int* last_write_pos);
  *
  * @param[out] buffer Pointer to the uint16_t pointer that will be set to the address of the buffer.
  * @param[out] last_write_pos Pointer to an integer that will be set to the last written position.
+ * @param motor_id The index of the motor to control (0 to MAX_MOTORS-1). Defaults to 0.
  * @return The size of the ring buffer, or 0 if not supported.
  */
-int hal_motor_get_current_buffer(volatile uint16_t** buffer, int* last_write_pos);
+int hal_motor_get_current_buffer(volatile uint16_t** buffer, int* last_write_pos, uint8_t motor_id = 0);
 
 /**
  * @brief Checks the solenoid/motor position by pinging both directions and measuring the response.
@@ -114,7 +123,8 @@ int hal_motor_get_current_buffer(volatile uint16_t** buffer, int* last_write_pos
  * @param measurement_delay_us The delay after switching off before measuring the response.
  * @param[out] response_a The measured response for the forward/A direction.
  * @param[out] response_b The measured response for the reverse/B direction.
+ * @param motor_id The index of the motor to control (0 to MAX_MOTORS-1). Defaults to 0.
  */
-void hal_motor_check_solenoid_position(int ping_pwm_value, int ping_duration_ms, int measurement_delay_us, int* response_a, int* response_b);
+void hal_motor_check_solenoid_position(int ping_pwm_value, int ping_duration_ms, int measurement_delay_us, int* response_a, int* response_b, uint8_t motor_id = 0);
 
 #endif // MOTOR_CONTROL_HAL_H
