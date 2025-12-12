@@ -31,6 +31,10 @@ struct MotorContext {
     uint motor_pwm_slice_b;
     uint16_t pwm_wrap_value;
 
+    // Configurable parameters
+    MotorPolarity polarity;
+    MotorDecayMode decay_mode;
+
     // DMA and ADC
     int dma_channel;
     volatile uint16_t bemf_ring_buffer[BEMF_RING_BUFFER_SIZE];
@@ -119,13 +123,12 @@ static int64_t delayed_adc_trigger_callback(alarm_id_t id, void *user_data) {
 
     if (current_val > adc_threshold) {
         // Fast Shutdown
-#ifdef LED_EDITION
-        pwm_set_gpio_level(ctx->pwm_a_pin, ctx->pwm_wrap_value);
-        pwm_set_gpio_level(ctx->pwm_b_pin, ctx->pwm_wrap_value);
-#else
+        // For shutdown, we should probably COAST (All OFF) rather than Brake.
+        // Since we use hardware inversion for Active Low, Level 0 always results in the OFF state.
+        // Active High: Level 0 -> Output 0 -> Pin 0 (OFF)
+        // Active Low:  Level 0 -> Output 0 -> Pin 1 (OFF)
         pwm_set_gpio_level(ctx->pwm_a_pin, 0);
         pwm_set_gpio_level(ctx->pwm_b_pin, 0);
-#endif
         return 0;
     }
 
@@ -193,16 +196,22 @@ void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, ui
     ctx->adc_trigger_delay_us = BEMF_MEASUREMENT_DELAY_US;
     ctx->skip_measurement = false;
 
+    // Default configuration
+#ifdef LED_EDITION
+    ctx->polarity = POLARITY_ACTIVE_LOW;
+    // For Active Low LEDs, we need INVERTED output
+    gpio_set_outover(  ctx->pwm_b_pin, GPIO_OVERRIDE_INVERT);
+    gpio_set_outover(  ctx->pwm_a_pin, GPIO_OVERRIDE_INVERT);
+#else
+    ctx->polarity = POLARITY_ACTIVE_HIGH; // Default to standard drivers
+    gpio_set_outover(  ctx->pwm_b_pin, GPIO_OVERRIDE_NORMAL);
+    gpio_set_outover(  ctx->pwm_a_pin, GPIO_OVERRIDE_NORMAL);
+#endif
+    ctx->decay_mode = DECAY_SLOW;         // Default to Slow Decay
+
     // --- PWM Setup ---
     gpio_set_function( ctx->pwm_a_pin, GPIO_FUNC_PWM );
     gpio_set_function( ctx->pwm_b_pin, GPIO_FUNC_PWM );
-    
-    gpio_set_outover(  ctx->pwm_b_pin, GPIO_OVERRIDE_INVERT);
-    gpio_set_outover(  ctx->pwm_a_pin, GPIO_OVERRIDE_INVERT);
-
-    // IMPORTANT: Set initial values to avoid unexpected start of the motor
-    pwm_set_gpio_level(ctx->pwm_a_pin, 65535);
-    pwm_set_gpio_level(ctx->pwm_b_pin, 65535);
 
     // Config calculation
     uint32_t system_clock = 125000000;
@@ -215,6 +224,11 @@ void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, ui
     }
     
     ctx->pwm_wrap_value = (uint16_t)(system_clock / (PWM_FREQUENCY_HZ * divider)) - 1;
+
+    // Initial safe values (Off)
+    // If Active High: 0. If Active Low: 1 (but we default to Active High here).
+    pwm_set_gpio_level(ctx->pwm_a_pin, 0);
+    pwm_set_gpio_level(ctx->pwm_b_pin, 0);
 
     pwm_config motor_pwm_conf = pwm_get_default_config();
     pwm_config_set_clkdiv(        &motor_pwm_conf, divider );
@@ -241,12 +255,10 @@ void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, ui
 #endif
     
     // Start both slices exactly synchronous
-    // Note: if multiple motors are on different slices, this mask only covers this motor's slices.
     uint32_t mask = (1u << ctx->motor_pwm_slice_a) | (1u << ctx->motor_pwm_slice_b);
     hw_set_bits(&pwm_hw->en, mask);
         
     // --- ADC and DMA Setup ---
-    // Initialize ADC only once!
     static bool adc_initialized = false;
     if (!adc_initialized) {
         adc_init();
@@ -274,10 +286,26 @@ void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, ui
     irq_set_exclusive_handler(DMA_IRQ_0, dma_irq_handler);
     irq_set_enabled(DMA_IRQ_0, true);
 
-    // DO NOT Start DMA here. Wait for trigger.
-    // dma_channel_set_write_addr(ctx->dma_channel, ctx->bemf_ring_buffer, true);
-    
     ctx->is_initialized = true;
+}
+
+void hal_motor_configure(uint8_t motor_id, MotorPolarity polarity, MotorDecayMode decay_mode) {
+    if (motor_id >= MAX_MOTORS) return;
+    MotorContext* ctx = &g_motors[motor_id];
+    if (!ctx->is_initialized) return;
+
+    ctx->polarity = polarity;
+    ctx->decay_mode = decay_mode;
+
+    // Apply Polarity immediately
+    // If Active Low, we invert the Output.
+    if (ctx->polarity == POLARITY_ACTIVE_LOW) {
+        gpio_set_outover(ctx->pwm_a_pin, GPIO_OVERRIDE_INVERT);
+        gpio_set_outover(ctx->pwm_b_pin, GPIO_OVERRIDE_INVERT);
+    } else {
+        gpio_set_outover(ctx->pwm_a_pin, GPIO_OVERRIDE_NORMAL);
+        gpio_set_outover(ctx->pwm_b_pin, GPIO_OVERRIDE_NORMAL);
+    }
 }
 
 void hal_motor_set_pwm(int duty_cycle, bool forward, uint8_t motor_id) {
@@ -285,16 +313,56 @@ void hal_motor_set_pwm(int duty_cycle, bool forward, uint8_t motor_id) {
     MotorContext* ctx = &g_motors[motor_id];
     if (!ctx->is_initialized) return;
 
-    // Map the 8-bit duty cycle (0-255) to the PWM counter's range.
-    uint16_t level = map(duty_cycle, 0, 255, ctx->pwm_wrap_value, 0);
+    // If duty cycle is 0, we effectively Coast.
+    if (duty_cycle == 0) {
+        // Coast: Both OFF.
+        // If Active High, logic 0 (NORMAL).
+        // If Active Low, logic 0 (INVERTED -> High Pin -> LED Off).
+        // Wait, if Active Low (LED), 0 is ON, 1 is OFF.
+        // `pwm_set_gpio_level` takes a counter value.
+        // If Inverted: `level` is compared. Output is !(Count < level).
+        // If we want OFF (High Z / High voltage for LED to be off?),
+        // For Active Low LED: OFF means Pin High.
+        // With Invert: Output = !(Count < level).
+        // To get High, we need `Count < level` to be False always? No.
+        // `Count < 0` is always false -> Output = !False = True (High). Correct.
+        // So level=0 implies OFF for Inverted too.
 
+        pwm_set_gpio_level(ctx->pwm_a_pin, 0);
+        pwm_set_gpio_level(ctx->pwm_b_pin, 0);
+        return;
+    }
+
+    // Map 0-255 to PWM range
+    uint16_t level = map(duty_cycle, 0, 255, 0, ctx->pwm_wrap_value);
+
+    // Standard Slow Decay (Coast/Drive) logic
     if (forward) {
        pwm_set_gpio_level(ctx->pwm_a_pin, level);
-       pwm_set_gpio_level(ctx->pwm_b_pin, 0); // OFF
+       pwm_set_gpio_level(ctx->pwm_b_pin, 0);
     } else {
-       pwm_set_gpio_level(ctx->pwm_a_pin, 0); // OFF
+       pwm_set_gpio_level(ctx->pwm_a_pin, 0);
        pwm_set_gpio_level(ctx->pwm_b_pin, level);
    }
+}
+
+void hal_motor_brake(uint8_t motor_id) {
+    if (motor_id >= MAX_MOTORS) return;
+    MotorContext* ctx = &g_motors[motor_id];
+    if (!ctx->is_initialized) return;
+
+    // Brake means turn both Low-side switches ON.
+    // In a typical H-Bridge (Active High Inputs): IN1=1, IN2=1 -> Brake.
+    // In Active Low (LEDs): IN1=0, IN2=0 -> ON.
+
+    // We want the "Active" state on both pins.
+    // `pwm_set_gpio_level` sets the compare level.
+    // To get 100% duty (Always Active): Level = Wrap Value + 1 (or just Wrap Value if phase correct?)
+    // Actually, Level > Count for the whole period.
+    // So Level = pwm_wrap_value + 1.
+
+    pwm_set_gpio_level(ctx->pwm_a_pin, ctx->pwm_wrap_value + 1);
+    pwm_set_gpio_level(ctx->pwm_b_pin, ctx->pwm_wrap_value + 1);
 }
 
 int hal_motor_get_bemf_buffer(volatile uint16_t** buffer, int* last_write_pos, uint8_t motor_id) {

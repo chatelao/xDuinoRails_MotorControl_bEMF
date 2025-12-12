@@ -39,6 +39,22 @@ const uint32_t BEMF_MEASUREMENT_DELAY_US = 10;
 #endif
 
 /**
+ * @brief Defines the output polarity of the motor driver signals.
+ */
+enum MotorPolarity {
+    POLARITY_ACTIVE_HIGH, /**< Logic High (1) turns the switch ON. Standard for most drivers. */
+    POLARITY_ACTIVE_LOW   /**< Logic Low (0) turns the switch ON. Used for some LEDs or inverted drivers. */
+};
+
+/**
+ * @brief Defines the decay mode (recirculation path) during the PWM Off-phase.
+ */
+enum MotorDecayMode {
+    DECAY_SLOW, /**< Slow Decay (Brake). The motor terminals are shorted (Low-Low or High-High) during Off-phase. */
+    DECAY_FAST  /**< Fast Decay (Coast/Drive). The motor terminals are driven complementary during Off-phase. Requires Dead Time. */
+};
+
+/**
  * @brief Callback function pointer type for BEMF updates.
  *
  * This function is called from an interrupt context whenever a new
@@ -69,6 +85,19 @@ typedef void (*hal_bemf_update_callback_t)(int raw_bemf_value);
 void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, uint8_t bemf_b_pin, hal_bemf_update_callback_t callback, uint8_t motor_id = 0);
 
 /**
+ * @brief Configures advanced motor control parameters.
+ *
+ * Allows changing the polarity, decay mode, and dead-time.
+ * Should be called after initialization if defaults need to be changed.
+ * Default is Active High, Slow Decay.
+ *
+ * @param motor_id The index of the motor.
+ * @param polarity The output polarity.
+ * @param decay_mode The decay mode (Slow or Fast).
+ */
+void hal_motor_configure(uint8_t motor_id, MotorPolarity polarity, MotorDecayMode decay_mode);
+
+/**
  * @brief Sets the motor's PWM duty cycle and direction.
  *
  * This function updates the PWM hardware with the new duty cycle. It should
@@ -80,6 +109,17 @@ void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, ui
  * @param motor_id The index of the motor to control (0 to MAX_MOTORS-1). Defaults to 0.
  */
 void hal_motor_set_pwm(int duty_cycle, bool forward, uint8_t motor_id = 0);
+
+/**
+ * @brief Actively brakes the motor.
+ *
+ * This function shorts the motor terminals (usually by turning both low-side switches ON)
+ * to dissipate the kinetic energy and stop the motor quickly.
+ * The polarity logic handles whether this means High-High or Low-Low.
+ *
+ * @param motor_id The index of the motor to control (0 to MAX_MOTORS-1). Defaults to 0.
+ */
+void hal_motor_brake(uint8_t motor_id = 0);
 
 /**
  * @brief Retrieves the BEMF ring buffer for diagnostics.
