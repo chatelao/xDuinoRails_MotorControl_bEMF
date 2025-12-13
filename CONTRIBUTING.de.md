@@ -28,6 +28,7 @@ Wir freuen uns über Beiträge in Form von Fehlerberichten, Funktionswünschen u
 
 - Fügen Sie zu jedem Testfall einen Kommentar hinzu, der das Ziel und die durchgeführten Schritte zusammenfasst.
 - Verweisen Sie für jeden Testfall auf die zugrunde liegende Spezifikation oder Dokumentation.
+- Das Projekt verwendet Renode für automatisierte Firmware-Tests. Siehe `tests/renode/README.md` für Details.
 
 ## Außerhalb des Geltungsbereichs
 
