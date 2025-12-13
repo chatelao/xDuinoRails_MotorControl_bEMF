@@ -7,11 +7,12 @@ This document outlines the current state of testing and planned improvements to 
 *   **Build Verification:** The CI pipeline currently verifies that all examples compile for the supported platforms (Seeed XIAO RP2040).
 *   **Simulation:** A basic Renode simulation runs the `SineWaveSpeed` example on the RP2040 to ensure the firmware executes without crashing for a short duration.
 *   **Electrical Simulation:** An `ngspice` simulation verifies the basic electrical behavior of the motor driver circuit.
+*   **Unit Testing:** The `test/` directory has been created to house future unit tests.
 
 ## Planned Improvements
 
 ### Unit Testing
-*   **Implement Unit Tests:** Create a `test/` directory and add unit tests for platform-independent logic (e.g., circular buffer management, math utility functions).
+*   **Implement Unit Tests:** Add unit tests for platform-independent logic (e.g., circular buffer management, math utility functions).
 *   **Hardware-in-the-Loop (HIL):** Explore options for running tests on actual hardware or more advanced simulators to verify HAL implementation details.
 
 ### Simulation Expansion
