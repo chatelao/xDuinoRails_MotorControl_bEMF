@@ -11,7 +11,7 @@ Die Hauptvorteile dieses Ansatzes sind:
 - **Einfachheit:** Die HAL bietet eine vereinfachte und konsistente Schnittstelle zu komplexen Hardware-Peripheriegeräten wie Timern, PWM-Generatoren, ADCs und DMA-Controllern.
 - **Wartbarkeit:** Der plattformspezifische Code ist sauber von der Anwendungslogik getrennt, was beides einfacher zu warten und zu debuggen macht.
 
-Die öffentliche API der HAL ist in `motor_control_hal.h` definiert. Die Implementierungen für die unterstützten Mikrocontroller (z. B. ESP32, RP2040, STM32) werden in separaten `.cpp`-Dateien bereitgestellt.
+Die öffentliche API der HAL ist in `motor_control_hal.h` definiert. Die Implementierungen für die unterstützten Mikrocontroller (aktuell RP2040) werden in separaten `.cpp`-Dateien bereitgestellt.
 
 ## 2. PWM-Motorsteuerung
 
