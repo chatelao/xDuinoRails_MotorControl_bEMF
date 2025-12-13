@@ -70,3 +70,8 @@ This document outlines the status of supported platforms and the plan for adding
 - [ ] Verify that all examples compile successfully for the new platform.
 - [ ] Perform on-hardware testing and validation.
 - [ ] Add documentation for the Seeed XIAO RP2350.
+
+## Planned Features
+
+- [ ] Allow the init bEMF pins to NULL to disable bEMF readback on a motor
+- [ ] Add the LED output as second motor to the SineExample
