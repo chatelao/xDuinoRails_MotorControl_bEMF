@@ -28,6 +28,7 @@ We welcome contributions in the form of bug reports, feature requests, and pull 
 
 - Add a comment to each test case, summarizing its goal and the steps it performs.
 - Reference the underlying specification or documentation for each test case.
+- The project uses Renode for automated firmware testing. See `tests/renode/README.md` for details.
 
 ## Out of Scope
 
