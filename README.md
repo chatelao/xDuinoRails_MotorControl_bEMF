@@ -45,8 +45,9 @@ This diagram shows a typical wiring setup using a Seeed Studio XIAO RP2040 and a
                      |    (Top View)      |      |    Motor Driver    |         | DC brushed    |
                      +--------------------+      +--------------------+         +---------------+
                      |                5v  |      |                    |         |               |
-                     |                GND |      |                    |         |               |
-                     |                3v3 |      |                    |         |               |
+          ---``|<----| D15 (LED B)    GND |      |                    |         |               |
+          ---``|<----| D16 (LED A)    3v3 |      |                    |         |               |
+                     |                    |      |                    |         |               |
                      |        (PWM B) D8  |----->| InB           OutB |=====+==>| B (-> D8)     |
                      |        (PWM A) D7  |----->| InA           OutA |==+==|==>| A (-> D7)     |
                      |                    |      +---------+----------+  |  |   +---------------+
