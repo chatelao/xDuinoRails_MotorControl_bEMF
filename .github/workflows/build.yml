@@ -61,7 +61,7 @@ jobs:
       - name: Run Renode Simulation
         if: matrix.platform == 'seeed_xiao_rp2040_led' && matrix.example == 'SineWaveSpeed'
         run: |
-          pip install robotframework
+          pip install robotframework psutil
           export PLATFORMIO_BUILD_FLAGS='-DDEBUG_SERIAL=Serial1'
           pio run -e ${{ matrix.platform }}
           renode-test tests/renode/test_firmware.robot
