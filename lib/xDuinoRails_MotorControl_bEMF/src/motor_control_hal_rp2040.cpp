@@ -23,17 +23,20 @@
 // =============================================================================
 
 // The RP2040 system clock is typically 125 MHz.
-#define RP2040_SYSTEM_CLOCK_HZ  125000000
+const uint32_t RP2040_SYSTEM_CLOCK_HZ = 125000000;
 
 // ADC Configuration
-#define ADC_RESOLUTION_BITS     12
-#define ADC_MAX_VALUE           4095.0f  // 2^12 - 1
-#define ADC_REF_VOLTAGE         3.3f     // Standard RP2040 logic voltage
-#define ADC_BASE_PIN            26       // GPIO 26 is ADC0
+const int      ADC_RESOLUTION_BITS    = 12;
+const float    ADC_MAX_VALUE          = 4095.0f; // 2^12 - 1
+const float    ADC_REF_VOLTAGE        = 3.3f;    // Standard RP2040 logic voltage
+const uint     ADC_BASE_PIN           = 26;      // GPIO 26 is ADC0
+const uint     ADC_FIFO_THRESHOLD     = 1;       // Number of samples to trigger DREQ
 
 // PWM Configuration
-#define PWM_MAX_TOP             65535    // 16-bit counter max value
-#define PWM_MAX_DIVIDER         255.0f   // 8-bit integer + 4-bit fractional divider
+const uint16_t PWM_MAX_TOP            = 65535;   // 16-bit counter max value
+const float    PWM_MAX_DIVIDER        = 255.0f;  // 8-bit integer + 4-bit fractional divider
+const int      PWM_DUTY_MIN           = 0;       // Minimum input duty cycle (0%)
+const int      PWM_DUTY_MAX           = 255;     // Maximum input duty cycle (100%)
 
 // =============================================================================
 // Data Structures
@@ -313,9 +316,9 @@ void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, ui
             // Setup ADC FIFO:
             // - Shift: true (required for DMA to read correctly)
             // - DREQ: true (enable DMA request from ADC)
-            // - Threshold: 1 (trigger DREQ after 1 sample)
+            // - Threshold: ADC_FIFO_THRESHOLD (trigger DREQ after N samples)
             // - Err: false, Scale: false
-            adc_fifo_setup(true, true, 1, false, false);
+            adc_fifo_setup(true, true, ADC_FIFO_THRESHOLD, false, false);
             adc_initialized = true;
         }
 
@@ -364,7 +367,7 @@ void hal_motor_set_pwm(int duty_cycle, bool forward, uint8_t motor_id) {
     // NOTE: The logic maps 255 -> 0 and 0 -> Max.
     // Combined with GPIO Inversion (if enabled) and hardware specifics,
     // this ensures 255 results in max duty and 0 in min duty at the output.
-    uint16_t level = map(duty_cycle, 0, 255, ctx->pwm_wrap_value, 0);
+    uint16_t level = map(duty_cycle, PWM_DUTY_MIN, PWM_DUTY_MAX, ctx->pwm_wrap_value, 0);
 
     if (forward) {
        pwm_set_gpio_level(ctx->pwm_a_pin, level);
