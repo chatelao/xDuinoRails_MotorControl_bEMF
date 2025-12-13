@@ -15,3 +15,8 @@ Should Boot And Print Message
     Create Terminal Tester      ${UART}
     Start Emulation
     Wait For Line On Uart       Sine Wave Motor Speed Control Example  timeout=10
+
+    # Common Pattern: Verify Main Loop Activity
+    # We wait for the "PWM: " string which is printed repeatedly in the loop.
+    # This confirms the firmware didn't crash after setup.
+    Wait For Line On Uart       PWM:   timeout=5
