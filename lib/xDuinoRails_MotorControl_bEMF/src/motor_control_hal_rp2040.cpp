@@ -233,7 +233,10 @@ void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, ui
     ctx->bemf_b_pin = bemf_b_pin;
     ctx->bemf_callback = callback;
     ctx->adc_trigger_delay_us = BEMF_MEASUREMENT_DELAY_US;
-    ctx->skip_measurement = false;
+    ctx->dma_channel = -1;
+
+    bool bemf_enabled = (bemf_a_pin != MOTOR_PIN_UNDEFINED) && (bemf_b_pin != MOTOR_PIN_UNDEFINED);
+    ctx->skip_measurement = !bemf_enabled;
 
     // --- PWM Setup ---
     gpio_set_function( ctx->pwm_a_pin, GPIO_FUNC_PWM );
@@ -288,11 +291,13 @@ void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, ui
     pwm_init(ctx->motor_pwm_slice_b, &motor_pwm_conf, false);
     
 #ifdef USE_IRQ_TRIGGER
-    // Enable PWM Wrap Interrupt for ADC synchronization
-    pwm_clear_irq(ctx->motor_pwm_slice_a);
-    pwm_set_irq_enabled(ctx->motor_pwm_slice_a, true);
-    irq_set_exclusive_handler(PWM_IRQ_WRAP, on_pwm_wrap);
-    irq_set_enabled(PWM_IRQ_WRAP, true);
+    if (bemf_enabled) {
+        // Enable PWM Wrap Interrupt for ADC synchronization
+        pwm_clear_irq(ctx->motor_pwm_slice_a);
+        pwm_set_irq_enabled(ctx->motor_pwm_slice_a, true);
+        irq_set_exclusive_handler(PWM_IRQ_WRAP, on_pwm_wrap);
+        irq_set_enabled(PWM_IRQ_WRAP, true);
+    }
 #endif
     
     // Start both slices exactly synchronously.
@@ -301,49 +306,51 @@ void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, ui
     hw_set_bits(&pwm_hw->en, mask);
         
     // --- ADC and DMA Setup ---
-    static bool adc_initialized = false;
-    if (!adc_initialized) {
-        adc_init();
-        // Setup ADC FIFO:
-        // - Shift: true (required for DMA to read correctly)
-        // - DREQ: true (enable DMA request from ADC)
-        // - Threshold: 1 (trigger DREQ after 1 sample)
-        // - Err: false, Scale: false
-        adc_fifo_setup(true, true, 1, false, false);
-        adc_initialized = true;
+    if (bemf_enabled) {
+        static bool adc_initialized = false;
+        if (!adc_initialized) {
+            adc_init();
+            // Setup ADC FIFO:
+            // - Shift: true (required for DMA to read correctly)
+            // - DREQ: true (enable DMA request from ADC)
+            // - Threshold: 1 (trigger DREQ after 1 sample)
+            // - Err: false, Scale: false
+            adc_fifo_setup(true, true, 1, false, false);
+            adc_initialized = true;
+        }
+
+        adc_gpio_init(ctx->bemf_a_pin);
+        adc_gpio_init(ctx->bemf_b_pin);
+
+        // --- DMA Configuration ---
+        ctx->dma_channel = dma_claim_unused_channel(true);
+        dma_channel_config dma_config = dma_channel_get_default_config(ctx->dma_channel);
+        channel_config_set_transfer_data_size(&dma_config, DMA_SIZE_16); // 16-bit transfers (uint16_t samples)
+        channel_config_set_read_increment(&dma_config, false);           // Read from fixed ADC FIFO address
+        channel_config_set_write_increment(&dma_config, true);           // Increment write address (fill buffer)
+        channel_config_set_dreq(&dma_config, DREQ_ADC);                  // Pace transfers based on ADC availability
+
+        // Configure Ring Buffer.
+        // The ring buffer allows the DMA to wrap around automatically.
+        // `channel_config_set_ring` takes the log2 of the byte size for alignment.
+        // `__builtin_ctz` (Count Trailing Zeros) efficiently calculates this power of 2.
+        // Example: Size 64 bytes -> binary ...1000000 -> ctz = 6.
+        channel_config_set_ring(&dma_config, true, __builtin_ctz(BEMF_RING_BUFFER_SIZE * sizeof(uint16_t)));
+
+        dma_channel_configure(
+            ctx->dma_channel,
+            &dma_config,
+            ctx->bemf_ring_buffer, // Destination
+            &adc_hw->fifo,         // Source
+            BEMF_RING_BUFFER_SIZE, // Transfer count
+            false                  // Do not start yet
+        );
+
+        // Setup DMA Interrupt
+        dma_channel_set_irq0_enabled(ctx->dma_channel, true);
+        irq_set_exclusive_handler(DMA_IRQ_0, dma_irq_handler);
+        irq_set_enabled(DMA_IRQ_0, true);
     }
-    
-    adc_gpio_init(ctx->bemf_a_pin);
-    adc_gpio_init(ctx->bemf_b_pin);
-
-    // --- DMA Configuration ---
-    ctx->dma_channel = dma_claim_unused_channel(true);
-    dma_channel_config dma_config = dma_channel_get_default_config(ctx->dma_channel);
-    channel_config_set_transfer_data_size(&dma_config, DMA_SIZE_16); // 16-bit transfers (uint16_t samples)
-    channel_config_set_read_increment(&dma_config, false);           // Read from fixed ADC FIFO address
-    channel_config_set_write_increment(&dma_config, true);           // Increment write address (fill buffer)
-    channel_config_set_dreq(&dma_config, DREQ_ADC);                  // Pace transfers based on ADC availability
-
-    // Configure Ring Buffer.
-    // The ring buffer allows the DMA to wrap around automatically.
-    // `channel_config_set_ring` takes the log2 of the byte size for alignment.
-    // `__builtin_ctz` (Count Trailing Zeros) efficiently calculates this power of 2.
-    // Example: Size 64 bytes -> binary ...1000000 -> ctz = 6.
-    channel_config_set_ring(&dma_config, true, __builtin_ctz(BEMF_RING_BUFFER_SIZE * sizeof(uint16_t)));
-
-    dma_channel_configure(
-        ctx->dma_channel,
-        &dma_config,
-        ctx->bemf_ring_buffer, // Destination
-        &adc_hw->fifo,         // Source
-        BEMF_RING_BUFFER_SIZE, // Transfer count
-        false                  // Do not start yet
-    );
-
-    // Setup DMA Interrupt
-    dma_channel_set_irq0_enabled(ctx->dma_channel, true);
-    irq_set_exclusive_handler(DMA_IRQ_0, dma_irq_handler);
-    irq_set_enabled(DMA_IRQ_0, true);
     
     ctx->is_initialized = true;
 }

@@ -91,5 +91,5 @@ This document outlines the status of supported platforms, planned features, and 
 
 ## Planned Features
 
-- [ ] Allow the init bEMF pins to NULL to disable bEMF readback on a motor
-- [ ] Add the LED output as second motor to the SineExample
+- [x] Allow the init bEMF pins to NULL to disable bEMF readback on a motor
+- [x] Add the LED output as second motor to the SineExample

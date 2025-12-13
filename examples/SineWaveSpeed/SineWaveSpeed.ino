@@ -35,6 +35,10 @@
 
         const int MOTOR_BEMF_A_PIN      = A2; // GPIO28
         const int MOTOR_BEMF_B_PIN      = A3; // GPIO29
+
+        // Onboard LEDs for parallel indication
+        const int LED_PWM_A_PIN         = 17; // LED Red
+        const int LED_PWM_B_PIN         = 16; // LED Green
     #else
         // For Seeed XIAO RP2040 "LED Edition"
         const int MOTOR_PWM_A_PIN       = 17; // LED Red   , PWM slice 0, channel A
@@ -66,6 +70,12 @@ void setup() {
   // Initialize the motor hardware abstraction layer.
   // Using default motor_id = 0 (Implicit)
   hal_motor_init(MOTOR_PWM_A_PIN, MOTOR_PWM_B_PIN, MOTOR_BEMF_A_PIN, MOTOR_BEMF_B_PIN, NULL);
+
+#if defined(ARDUINO_SEEED_XIAO_RP2040) && !defined(LED_EDITION)
+  // Initialize the onboard LEDs as a second "motor" (parallel indication)
+  // BEMF pins are set to undefined to disable measurement.
+  hal_motor_init(LED_PWM_A_PIN, LED_PWM_B_PIN, MOTOR_PIN_UNDEFINED, MOTOR_PIN_UNDEFINED, NULL, 1);
+#endif
 
 #if defined(ARDUINO_SEEED_XIAO_RP2040)
 
@@ -99,6 +109,11 @@ void loop() {
   // Set the motor PWM.
   // Using default motor_id = 0 (Implicit)
   hal_motor_set_pwm(pwmValue, motorDirection);
+
+#if defined(ARDUINO_SEEED_XIAO_RP2040) && !defined(LED_EDITION)
+  // Drive the parallel LED motor
+  hal_motor_set_pwm(pwmValue, motorDirection, 1);
+#endif
 
 #if defined(ARDUINO_SEEED_XIAO_RP2040)
   // Indicate motor direction with color (Green for Forward, Red for Backward)
