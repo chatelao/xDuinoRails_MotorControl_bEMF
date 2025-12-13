@@ -157,19 +157,9 @@ static int64_t delayed_adc_trigger_callback(alarm_id_t id, void *user_data) {
 
     if (current_val > adc_threshold) {
         // Fast Shutdown: Set both pins to OFF state immediately.
-#ifdef LED_EDITION
-        // For LED edition, active high/low logic might differ,
-        // but 'pwm_wrap_value' usually means 100% duty, which combined with
-        // inversion might mean OFF or ON depending on wiring.
-        // Assuming Safe State here.
-        pwm_set_gpio_level(ctx->pwm_a_pin, ctx->pwm_wrap_value);
-        pwm_set_gpio_level(ctx->pwm_b_pin, ctx->pwm_wrap_value);
-#else
-        // Standard H-Bridge: 0 duty cycle = OFF
         pwm_set_gpio_level(ctx->pwm_a_pin, 0);
         pwm_set_gpio_level(ctx->pwm_b_pin, 0);
-#endif
-        return 0; // Abort BEMF measurement
+        return 0;
     }
 #endif
 
