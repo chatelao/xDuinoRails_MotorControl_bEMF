@@ -38,6 +38,9 @@ const uint32_t BEMF_MEASUREMENT_DELAY_US = 10;
 #define MAX_CURRENT_AMPS 2.0f
 #endif
 
+// Value to indicate that a pin is not used/undefined.
+const uint8_t MOTOR_PIN_UNDEFINED = 0xFF;
+
 /**
  * @brief Callback function pointer type for BEMF updates.
  *
@@ -61,7 +64,9 @@ typedef void (*hal_bemf_update_callback_t)(int raw_bemf_value);
  * @param pwm_a_pin The GPIO pin number for PWM channel A (e.g., forward).
  * @param pwm_b_pin The GPIO pin number for PWM channel B (e.g., reverse).
  * @param bemf_a_pin The GPIO pin number for ADC input connected to motor terminal A.
+ *                   Pass MOTOR_PIN_UNDEFINED (0xFF) to disable BEMF measurement.
  * @param bemf_b_pin The GPIO pin number for ADC input connected to motor terminal B.
+ *                   Pass MOTOR_PIN_UNDEFINED (0xFF) to disable BEMF measurement.
  * @param callback A pointer to a function that will be called from an interrupt
  *                 context with new BEMF data.
  * @param motor_id The index of the motor to control (0 to MAX_MOTORS-1). Defaults to 0.
