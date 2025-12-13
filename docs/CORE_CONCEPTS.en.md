@@ -11,7 +11,7 @@ The main benefits of this approach are:
 - **Simplicity:** The HAL provides a simplified and consistent interface to complex hardware peripherals like timers, PWM generators, ADCs, and DMA controllers.
 - **Maintainability:** The platform-specific code is neatly separated from the application logic, making both easier to maintain and debug.
 
-The public API of the HAL is defined in `motor_control_hal.h`. The implementations for the supported microcontrollers (e.g., ESP32, RP2040, STM32) are provided in separate `.cpp` files.
+The public API of the HAL is defined in `motor_control_hal.h`. The implementations for the supported microcontrollers (currently RP2040) are provided in separate `.cpp` files.
 
 ## 2. PWM Motor Control
 

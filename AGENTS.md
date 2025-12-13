@@ -7,6 +7,7 @@ AGENTS.md
 - Keep sources in “src”, exceptions are possible depending on special technologies
 
 # Documentation
+- Update the documentation after each task
 - Create and maintain on every change a README.md, add the usual summary
 - Create a LICENSE.md if missing with AGPL 3.0 (Affero GNU)
 - Create and maintain on every change a “CONTRIBUTING.md”
