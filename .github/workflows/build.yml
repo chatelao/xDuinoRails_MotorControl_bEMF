@@ -61,7 +61,12 @@ jobs:
       - name: Run Renode Simulation
         if: matrix.platform == 'seeed_xiao_rp2040_led' && matrix.example == 'SineWaveSpeed'
         run: |
-          renode --disable-xwt --console -e "mach create 'rp2040'; machine LoadPlatformDescription @platforms/boards/raspberry_pi_pico.repl; sysbus LoadELF @.pio/build/${{ matrix.platform }}/firmware.elf; start; sleep 2; quit"
+          pip install robotframework
+          export PLATFORMIO_BUILD_FLAGS='-DDEBUG_SERIAL=Serial1'
+          pio run -e ${{ matrix.platform }}
+          renode-test tests/renode/test_firmware.robot
+          unset PLATFORMIO_BUILD_FLAGS
+          pio run -e ${{ matrix.platform }}
 
       - name: Rename Firmware and Set Path
         id: rename

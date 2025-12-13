@@ -57,6 +57,10 @@ const int MOTOR_BEMF_A_PIN      =  A3;
 const int MOTOR_BEMF_B_PIN      =  A2;
 #endif
 
+#ifndef DEBUG_SERIAL
+    #define DEBUG_SERIAL Serial
+#endif
+
 // --- Sine Wave Parameters ---
 const float SINE_WAVE_PERIOD    = 2500; // 2.5 seconds in milliseconds
 const int MIN_PWM_DUTY_CYCLE    =    0;   // 0% of 255
@@ -64,8 +68,8 @@ const int MAX_PWM_DUTY_CYCLE    =  191;  // 75% of 255
 bool motorDirection             = true;   // Motor direction: true for forward
 
 void setup() {
-  Serial.begin(115200);
-  Serial.println("Sine Wave Motor Speed Control Example");
+  DEBUG_SERIAL.begin(115200);
+  DEBUG_SERIAL.println("Sine Wave Motor Speed Control Example");
 
   // Initialize the motor hardware abstraction layer.
   // Using default motor_id = 0 (Implicit)
@@ -126,8 +130,8 @@ void loop() {
 #endif
 
   // Print the current PWM value for debugging.
-  Serial.print("PWM: ");
-  Serial.println(pwmValue);
+  DEBUG_SERIAL.print("PWM: ");
+  DEBUG_SERIAL.println(pwmValue);
 
   // A small delay to prevent spamming the serial port.
   delay(10);

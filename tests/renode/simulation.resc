@@ -1,0 +1,20 @@
+:name: seeed_xiao_rp2040
+:description: This script runs the firmware on a Seeed Xiao RP2040.
+
+using sysbus
+$name?="seeed_xiao_rp2040"
+mach create $name
+
+machine LoadPlatformDescription @platforms/boards/raspberry_pi_pico.repl
+
+# The binary path will be set by the test runner or passed as a variable
+$bin?=@.pio/build/seeed_xiao_rp2040_led/firmware.elf
+
+showAnalyzer uart0
+
+macro reset
+"""
+    sysbus LoadELF $bin
+"""
+
+runMacro $reset
