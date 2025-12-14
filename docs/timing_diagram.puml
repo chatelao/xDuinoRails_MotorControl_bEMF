@@ -1,0 +1,47 @@
+@startuml
+robust "PWM Counter" as PWM
+binary "PWM Output" as PIN
+binary "Interrupts" as IRQ
+robust "ADC/DMA" as BEMF
+
+scale 100 as 50 us
+
+@0
+PWM is "0 (Bottom)"
+PIN is "ON"
+IRQ is "PWM Wrap"
+BEMF is "Idle"
+
+@1
+IRQ is low
+PWM is "Counting Up"
+
+@50
+PIN is "OFF"
+PWM is "Counting Up"
+BEMF is "Waiting Delay"
+
+@70
+BEMF is "ADC Sampling"
+note bottom of BEMF: Delayed Trigger
+
+@90
+BEMF is "DMA Transfer"
+
+@100
+BEMF is "Processing"
+IRQ is "DMA IRQ"
+
+@105
+IRQ is low
+BEMF is "Idle"
+PWM is "Top"
+
+@150
+PIN is "ON"
+PWM is "Counting Down"
+
+@200
+PWM is "0 (Bottom)"
+IRQ is "PWM Wrap"
+@enduml

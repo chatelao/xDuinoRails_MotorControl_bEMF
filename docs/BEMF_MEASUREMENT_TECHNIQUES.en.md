@@ -2,6 +2,8 @@
 
 Accurate measurement of Back-EMF (BEMF) is crucial for precise, sensorless motor control. This document describes the techniques implemented in the project to extract stable speed information from a noisy raw signal.
 
+[View PlantUML Timing Diagram source](timing_diagram.puml)
+
 The process is divided into two main steps: the basic measurement method and a two-stage software filtering.
 
 ## 1. Foundation: Differential Measurement

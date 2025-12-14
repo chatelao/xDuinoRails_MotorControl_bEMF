@@ -2,6 +2,8 @@
 
 Die genaue Messung der Back-EMF (BEMF) ist entscheidend für die präzise, sensorlose Regelung des Motors. Dieses Dokument beschreibt die im Projekt implementierten Techniken, um aus dem verrauschten Rohsignal eine stabile Geschwindigkeitsinformation zu gewinnen.
 
+[PlantUML Timing Diagramm Quellcode ansehen](timing_diagram.puml)
+
 Der Prozess gliedert sich in zwei Hauptschritte: die grundlegende Messmethode und eine zweistufige Software-Filterung.
 
 ## 1. Grundlage: Differenzielle Messung
