@@ -74,6 +74,24 @@ typedef void (*hal_bemf_update_callback_t)(int raw_bemf_value);
 void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, uint8_t bemf_b_pin, hal_bemf_update_callback_t callback, uint8_t motor_id = 0);
 
 /**
+ * @brief Initializes the low-level hardware for a discrete H-Bridge (4-Pin).
+ *
+ * This variant of the initialization function is intended for discrete H-Bridges
+ * where each MOSFET is driven by a separate pin (High-Side and Low-Side).
+ * It enables hardware dead-time insertion to prevent shoot-through.
+ *
+ * @param hs_a_pin High-Side pin for Half-Bridge A.
+ * @param ls_a_pin Low-Side pin for Half-Bridge A.
+ * @param hs_b_pin High-Side pin for Half-Bridge B.
+ * @param ls_b_pin Low-Side pin for Half-Bridge B.
+ * @param bemf_a_pin ADC input pin for Half-Bridge A.
+ * @param bemf_b_pin ADC input pin for Half-Bridge B.
+ * @param callback Function to call with new BEMF data.
+ * @param motor_id The index of the motor to control (0 to MAX_MOTORS-1). Defaults to 0.
+ */
+void hal_motor_init_discrete(uint8_t hs_a_pin, uint8_t ls_a_pin, uint8_t hs_b_pin, uint8_t ls_b_pin, uint8_t bemf_a_pin, uint8_t bemf_b_pin, hal_bemf_update_callback_t callback, uint8_t motor_id = 0);
+
+/**
  * @brief Sets the motor's PWM duty cycle and direction.
  *
  * This function updates the PWM hardware with the new duty cycle. It should
