@@ -37,6 +37,7 @@ const uint16_t PWM_MAX_TOP            = 65535;   // 16-bit counter max value
 const float    PWM_MAX_DIVIDER        = 255.0f;  // 8-bit integer + 4-bit fractional divider
 const int      PWM_DUTY_MIN           = 0;       // Minimum input duty cycle (0%)
 const int      PWM_DUTY_MAX           = 255;     // Maximum input duty cycle (100%)
+const uint16_t PWM_DEAD_TIME_CYCLES   = 50;      // Dead time in system clock cycles (~400ns at 125MHz)
 
 // =============================================================================
 // Data Structures
@@ -44,8 +45,15 @@ const int      PWM_DUTY_MAX           = 255;     // Maximum input duty cycle (10
 
 struct MotorContext {
     bool is_initialized;
-    uint8_t pwm_a_pin;
-    uint8_t pwm_b_pin;
+    bool is_discrete_mode; // True for 4-pin H-Bridge
+
+    // Pins
+    uint8_t pwm_a_pin; // Acts as HS_A in discrete mode
+    uint8_t pwm_b_pin; // Acts as HS_B in discrete mode
+    // Discrete Mode Only Pins
+    uint8_t ls_a_pin;
+    uint8_t ls_b_pin;
+
     uint8_t bemf_a_pin;
     uint8_t bemf_b_pin;
 
@@ -77,6 +85,7 @@ static volatile bool g_adc_busy = false;
 static void dma_irq_handler();
 static int64_t delayed_adc_trigger_callback(alarm_id_t id, void *user_data);
 static void on_pwm_wrap();
+static void common_motor_init(MotorContext* ctx);
 
 // =============================================================================
 // Internal Helper Functions & ISRs
@@ -160,8 +169,17 @@ static int64_t delayed_adc_trigger_callback(alarm_id_t id, void *user_data) {
 
     if (current_val > adc_threshold) {
         // Fast Shutdown: Set both pins to OFF state immediately.
-        pwm_set_gpio_level(ctx->pwm_a_pin, 0);
-        pwm_set_gpio_level(ctx->pwm_b_pin, 0);
+        // In discrete mode, this means turning everything OFF (High-Z).
+        if (ctx->is_discrete_mode) {
+             pwm_set_gpio_level(ctx->pwm_a_pin, 0); // HS_A
+             pwm_set_gpio_level(ctx->pwm_b_pin, 0); // HS_B
+             pwm_set_gpio_level(ctx->ls_a_pin,  0); // LS_A
+             pwm_set_gpio_level(ctx->ls_b_pin,  0); // LS_B
+        } else {
+             // For standard mode with Inversion, PWM_MAX_TOP is OFF.
+             pwm_set_gpio_level(ctx->pwm_a_pin, PWM_MAX_TOP);
+             pwm_set_gpio_level(ctx->pwm_b_pin, PWM_MAX_TOP);
+        }
         return 0;
     }
 #endif
@@ -219,47 +237,48 @@ static void on_pwm_wrap() {
     }
 }
 
-
-// =============================================================================
-// Public HAL Function Implementations
-// =============================================================================
-
-void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, uint8_t bemf_b_pin, hal_bemf_update_callback_t callback, uint8_t motor_id) {
-    if (motor_id >= MAX_MOTORS) return;
-
-    MotorContext* ctx = &g_motors[motor_id];
-
-    // Store Pin Config
-    ctx->pwm_a_pin  = pwm_a_pin;
-    ctx->pwm_b_pin  = pwm_b_pin;
-    ctx->bemf_a_pin = bemf_a_pin;
-    ctx->bemf_b_pin = bemf_b_pin;
-    ctx->bemf_callback = callback;
-    ctx->adc_trigger_delay_us = BEMF_MEASUREMENT_DELAY_US;
-    ctx->dma_channel = -1;
-
-    bool bemf_enabled = (bemf_a_pin != MOTOR_PIN_UNDEFINED) && (bemf_b_pin != MOTOR_PIN_UNDEFINED);
+/**
+ * @brief Common Initialization Logic for Motor Context.
+ *
+ * Configures PWM frequency, slices, interrupts, and ADC/DMA.
+ * Shared between standard and discrete init modes.
+ */
+static void common_motor_init(MotorContext* ctx) {
+    bool bemf_enabled = (ctx->bemf_a_pin != MOTOR_PIN_UNDEFINED) && (ctx->bemf_b_pin != MOTOR_PIN_UNDEFINED);
     ctx->skip_measurement = !bemf_enabled;
 
     // --- PWM Setup ---
     gpio_set_function( ctx->pwm_a_pin, GPIO_FUNC_PWM );
     gpio_set_function( ctx->pwm_b_pin, GPIO_FUNC_PWM );
     
-    // Invert the PWM output.
-    // This is often required for specific driver logic or to ensure that
-    // a duty cycle of 0 (after inversion logic) effectively shuts off the FETs.
-    gpio_set_outover(  ctx->pwm_b_pin, GPIO_OVERRIDE_INVERT);
-    gpio_set_outover(  ctx->pwm_a_pin, GPIO_OVERRIDE_INVERT);
+    if (ctx->is_discrete_mode) {
+        // Discrete Mode: Use standard polarity (Active High)
+        // This ensures the hardware Dead-Time generator works correctly (delays rising edge).
+        gpio_set_outover(  ctx->pwm_b_pin, GPIO_OVERRIDE_NORMAL );
+        gpio_set_outover(  ctx->pwm_a_pin, GPIO_OVERRIDE_NORMAL );
 
-    // Set initial duty to "OFF" state.
-    // With inversion and PWM logic, 65535 (max) often maps to logic low (OFF)
-    // depending on the driver configuration.
-    pwm_set_gpio_level(ctx->pwm_a_pin, PWM_MAX_TOP);
-    pwm_set_gpio_level(ctx->pwm_b_pin, PWM_MAX_TOP);
+        gpio_set_function( ctx->ls_a_pin, GPIO_FUNC_PWM );
+        gpio_set_function( ctx->ls_b_pin, GPIO_FUNC_PWM );
+        gpio_set_outover(  ctx->ls_a_pin, GPIO_OVERRIDE_NORMAL );
+        gpio_set_outover(  ctx->ls_b_pin, GPIO_OVERRIDE_NORMAL );
+
+        // Initial OFF state (Level 0 = OFF)
+        pwm_set_gpio_level(ctx->ls_a_pin, 0);
+        pwm_set_gpio_level(ctx->ls_b_pin, 0);
+        pwm_set_gpio_level(ctx->pwm_a_pin, 0);
+        pwm_set_gpio_level(ctx->pwm_b_pin, 0);
+    } else {
+        // Standard Mode: Invert the PWM output.
+        // Often required for driver logic or to match historical behavior.
+        gpio_set_outover(  ctx->pwm_b_pin, GPIO_OVERRIDE_INVERT);
+        gpio_set_outover(  ctx->pwm_a_pin, GPIO_OVERRIDE_INVERT);
+
+        // Set initial duty to "OFF" state. (Wrap/Top = OFF due to Inversion)
+        pwm_set_gpio_level(ctx->pwm_a_pin, PWM_MAX_TOP);
+        pwm_set_gpio_level(ctx->pwm_b_pin, PWM_MAX_TOP);
+    }
 
     // --- PWM Frequency Calculation ---
-    // We need to configure the PWM clock divider and wrap value to achieve the
-    // target PWM_FREQUENCY_HZ given the system clock.
     // Formula: SystemClock = Frequency * (WrapValue + 1) * Divider
 
     uint32_t system_clock = RP2040_SYSTEM_CLOCK_HZ;
@@ -269,7 +288,6 @@ void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, ui
     // If 'top' exceeds the 16-bit counter limit (65535), we must use the clock divider.
     if (top > PWM_MAX_TOP) {
         divider = (float)top / (float)PWM_MAX_TOP;
-        // The hardware divider is 8-bit integer + 4-bit fractional, maxing around 255.
         if (divider > PWM_MAX_DIVIDER) divider = PWM_MAX_DIVIDER;
     }
     
@@ -292,6 +310,12 @@ void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, ui
     // Initialize slices but do NOT enable them yet.
     pwm_init(ctx->motor_pwm_slice_a, &motor_pwm_conf, false);
     pwm_init(ctx->motor_pwm_slice_b, &motor_pwm_conf, false);
+
+    // Enable Dead Time if in discrete mode
+    if (ctx->is_discrete_mode) {
+        pwm_set_dead_time(ctx->motor_pwm_slice_a, PWM_DEAD_TIME_CYCLES, PWM_DEAD_TIME_CYCLES);
+        pwm_set_dead_time(ctx->motor_pwm_slice_b, PWM_DEAD_TIME_CYCLES, PWM_DEAD_TIME_CYCLES);
+    }
     
 #ifdef USE_IRQ_TRIGGER
     if (bemf_enabled) {
@@ -304,7 +328,6 @@ void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, ui
 #endif
     
     // Start both slices exactly synchronously.
-    // If PWM A and B are on different slices, we bitmask both enable bits.
     uint32_t mask = (1u << ctx->motor_pwm_slice_a) | (1u << ctx->motor_pwm_slice_b);
     hw_set_bits(&pwm_hw->en, mask);
         
@@ -334,10 +357,6 @@ void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, ui
         channel_config_set_dreq(&dma_config, DREQ_ADC);                  // Pace transfers based on ADC availability
 
         // Configure Ring Buffer.
-        // The ring buffer allows the DMA to wrap around automatically.
-        // `channel_config_set_ring` takes the log2 of the byte size for alignment.
-        // `__builtin_ctz` (Count Trailing Zeros) efficiently calculates this power of 2.
-        // Example: Size 64 bytes -> binary ...1000000 -> ctz = 6.
         channel_config_set_ring(&dma_config, true, __builtin_ctz(BEMF_RING_BUFFER_SIZE * sizeof(uint16_t)));
 
         dma_channel_configure(
@@ -358,24 +377,99 @@ void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, ui
     ctx->is_initialized = true;
 }
 
+
+// =============================================================================
+// Public HAL Function Implementations
+// =============================================================================
+
+void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, uint8_t bemf_b_pin, hal_bemf_update_callback_t callback, uint8_t motor_id) {
+    if (motor_id >= MAX_MOTORS) return;
+
+    MotorContext* ctx = &g_motors[motor_id];
+
+    // Store Pin Config
+    ctx->pwm_a_pin  = pwm_a_pin;
+    ctx->pwm_b_pin  = pwm_b_pin;
+    ctx->bemf_a_pin = bemf_a_pin;
+    ctx->bemf_b_pin = bemf_b_pin;
+    ctx->bemf_callback = callback;
+    ctx->adc_trigger_delay_us = BEMF_MEASUREMENT_DELAY_US;
+    ctx->dma_channel = -1;
+    ctx->is_discrete_mode = false;
+
+    common_motor_init(ctx);
+}
+
+void hal_motor_init_discrete(uint8_t hs_a_pin, uint8_t ls_a_pin, uint8_t hs_b_pin, uint8_t ls_b_pin, uint8_t bemf_a_pin, uint8_t bemf_b_pin, hal_bemf_update_callback_t callback, uint8_t motor_id) {
+    if (motor_id >= MAX_MOTORS) return;
+
+    // Validate that HS and LS pins of each half-bridge are on the same PWM Slice.
+    // This is required to use hardware dead-time and ensure synchronization.
+    if (pwm_gpio_to_slice_num(hs_a_pin) != pwm_gpio_to_slice_num(ls_a_pin)) return;
+    if (pwm_gpio_to_slice_num(hs_b_pin) != pwm_gpio_to_slice_num(ls_b_pin)) return;
+
+    MotorContext* ctx = &g_motors[motor_id];
+
+    // Map pins: pwm_a/b used for HS, ls_a/b for LS.
+    ctx->pwm_a_pin  = hs_a_pin;
+    ctx->ls_a_pin   = ls_a_pin;
+    ctx->pwm_b_pin  = hs_b_pin;
+    ctx->ls_b_pin   = ls_b_pin;
+
+    ctx->bemf_a_pin = bemf_a_pin;
+    ctx->bemf_b_pin = bemf_b_pin;
+    ctx->bemf_callback = callback;
+    ctx->adc_trigger_delay_us = BEMF_MEASUREMENT_DELAY_US;
+    ctx->dma_channel = -1;
+    ctx->is_discrete_mode = true;
+
+    common_motor_init(ctx);
+}
+
 void hal_motor_set_pwm(int duty_cycle, bool forward, uint8_t motor_id) {
     if (motor_id >= MAX_MOTORS) return;
     MotorContext* ctx = &g_motors[motor_id];
     if (!ctx->is_initialized) return;
 
-    // Map the 8-bit duty cycle (0-255) to the hardware PWM counter range.
-    // NOTE: The logic maps 255 -> 0 and 0 -> Max.
-    // Combined with GPIO Inversion (if enabled) and hardware specifics,
-    // this ensures 255 results in max duty and 0 in min duty at the output.
-    uint16_t level = map(duty_cycle, PWM_DUTY_MIN, PWM_DUTY_MAX, ctx->pwm_wrap_value, 0);
+    if (ctx->is_discrete_mode) {
+        // Discrete H-Bridge Control (Fast Decay / Coasting Mode)
+        // ON Phase: Current flows through HS of one side and LS of the other.
+        // OFF Phase: All Switches OFF (Coasting), allows BEMF measurement.
+        // We use NORMAL polarity (Active High).
+        // Map 0->0, 255->Wrap.
+        uint16_t on_level = map(duty_cycle, PWM_DUTY_MIN, PWM_DUTY_MAX, 0, ctx->pwm_wrap_value);
+        uint16_t off_level = 0; // Safe OFF
 
-    if (forward) {
-       pwm_set_gpio_level(ctx->pwm_a_pin, level);
-       pwm_set_gpio_level(ctx->pwm_b_pin, 0);
+        if (forward) {
+             // Forward: Left HS (A) + Right LS (B)
+             pwm_set_gpio_level(ctx->pwm_a_pin, on_level);  // HS_A = PWM
+             pwm_set_gpio_level(ctx->ls_a_pin,  off_level); // LS_A = OFF
+
+             pwm_set_gpio_level(ctx->pwm_b_pin, off_level); // HS_B = OFF
+             pwm_set_gpio_level(ctx->ls_b_pin,  on_level);  // LS_B = PWM
+        } else {
+             // Reverse: Right HS (B) + Left LS (A)
+             pwm_set_gpio_level(ctx->pwm_a_pin, off_level); // HS_A = OFF
+             pwm_set_gpio_level(ctx->ls_a_pin,  on_level);  // LS_A = PWM
+
+             pwm_set_gpio_level(ctx->pwm_b_pin, on_level);  // HS_B = PWM
+             pwm_set_gpio_level(ctx->ls_b_pin,  off_level); // LS_B = OFF
+        }
+
     } else {
-       pwm_set_gpio_level(ctx->pwm_a_pin, 0); // Logic 0 (OFF)
-       pwm_set_gpio_level(ctx->pwm_b_pin, level);
-   }
+        // Standard Integrated Driver (2-Pin)
+        // Inverted Logic: 255 -> 0 (ON), 0 -> Wrap (OFF)
+        uint16_t on_level = map(duty_cycle, PWM_DUTY_MIN, PWM_DUTY_MAX, ctx->pwm_wrap_value, 0);
+        uint16_t off_level = PWM_MAX_TOP;
+
+        if (forward) {
+           pwm_set_gpio_level(ctx->pwm_a_pin, on_level);
+           pwm_set_gpio_level(ctx->pwm_b_pin, off_level);
+        } else {
+           pwm_set_gpio_level(ctx->pwm_a_pin, off_level);
+           pwm_set_gpio_level(ctx->pwm_b_pin, on_level);
+       }
+    }
 }
 
 int hal_motor_get_bemf_buffer(volatile uint16_t** buffer, int* last_write_pos, uint8_t motor_id) {

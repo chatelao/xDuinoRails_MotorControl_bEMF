@@ -16,6 +16,7 @@ jobs:
         platform:
           - seeed_xiao_rp2040
           - seeed_xiao_rp2040_led
+          - seeed_xiao_rp2040_discrete_hbridge
         example:
           - SineWaveSpeed
         include:

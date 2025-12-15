@@ -30,15 +30,32 @@
 
     #ifndef LED_EDITION
         // For standard Seeed XIAO RP2040
-        const int MOTOR_PWM_A_PIN       =  D9;
-        const int MOTOR_PWM_B_PIN       = D10;
+        #ifndef DISCRETE_H_BRIDGE
+            const int MOTOR_PWM_A_PIN       =  D9;
+            const int MOTOR_PWM_B_PIN       = D10;
 
-        const int MOTOR_BEMF_A_PIN      = A2; // GPIO28
-        const int MOTOR_BEMF_B_PIN      = A3; // GPIO29
+            const int MOTOR_BEMF_A_PIN      = A2; // GPIO28
+            const int MOTOR_BEMF_B_PIN      = A3; // GPIO29
 
-        // Onboard LEDs for parallel indication
-        const int LED_PWM_A_PIN         = 17; // LED Red
-        const int LED_PWM_B_PIN         = 16; // LED Green
+            // Onboard LEDs for parallel indication
+            const int LED_PWM_A_PIN         = 17; // LED Red
+            const int LED_PWM_B_PIN         = 16; // LED Green
+        #else
+            // Discrete H-Bridge Config for testing
+            // Needs 4 Pins for Bridge (2 Slices) + 2 Pins for ADC.
+
+            // Slice 3: D4 (GPIO 6, 3A), D5 (GPIO 7, 3B) -> Left Half-Bridge
+            const int BRIDGE_HS_A_PIN = D4;
+            const int BRIDGE_LS_A_PIN = D5;
+
+            // Slice 0: D6 (GPIO 0, 0A), D7 (GPIO 1, 0B) -> Right Half-Bridge
+            const int BRIDGE_HS_B_PIN = D6;
+            const int BRIDGE_LS_B_PIN = D7;
+
+            // ADC: A0 (GPIO 26), A1 (GPIO 27)
+            const int MOTOR_BEMF_A_PIN = A0;
+            const int MOTOR_BEMF_B_PIN = A1;
+        #endif
     #else
         // For Seeed XIAO RP2040 "LED Edition"
         const int MOTOR_PWM_A_PIN       = 17; // LED Red   , PWM slice 0, channel A
@@ -69,9 +86,18 @@ void setup() {
 
   // Initialize the motor hardware abstraction layer.
   // Using default motor_id = 0 (Implicit)
+#ifdef DISCRETE_H_BRIDGE
+  hal_motor_init_discrete(
+      BRIDGE_HS_A_PIN, BRIDGE_LS_A_PIN,
+      BRIDGE_HS_B_PIN, BRIDGE_LS_B_PIN,
+      MOTOR_BEMF_A_PIN, MOTOR_BEMF_B_PIN,
+      NULL
+  );
+#else
   hal_motor_init(MOTOR_PWM_A_PIN, MOTOR_PWM_B_PIN, MOTOR_BEMF_A_PIN, MOTOR_BEMF_B_PIN, NULL);
+#endif
 
-#if defined(ARDUINO_SEEED_XIAO_RP2040) && !defined(LED_EDITION)
+#if defined(ARDUINO_SEEED_XIAO_RP2040) && !defined(LED_EDITION) && !defined(DISCRETE_H_BRIDGE)
   // Initialize the onboard LEDs as a second "motor" (parallel indication)
   // BEMF pins are set to undefined to disable measurement.
   hal_motor_init(LED_PWM_A_PIN, LED_PWM_B_PIN, MOTOR_PIN_UNDEFINED, MOTOR_PIN_UNDEFINED, NULL, 1);
@@ -110,7 +136,7 @@ void loop() {
   // Using default motor_id = 0 (Implicit)
   hal_motor_set_pwm(pwmValue, motorDirection);
 
-#if defined(ARDUINO_SEEED_XIAO_RP2040) && !defined(LED_EDITION)
+#if defined(ARDUINO_SEEED_XIAO_RP2040) && !defined(LED_EDITION) && !defined(DISCRETE_H_BRIDGE)
   // Drive the parallel LED motor
   hal_motor_set_pwm(pwmValue, motorDirection, 1);
 #endif
