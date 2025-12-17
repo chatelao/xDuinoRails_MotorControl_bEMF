@@ -45,9 +45,20 @@ jobs:
           python -m pip install --upgrade pip
           pip install --upgrade platformio
 
+      - name: Prepare build environment
+        run: |
+          mkdir -p src
+          EXAMPLE_PATH="examples/${{ matrix.example }}"
+          if [ -f "${EXAMPLE_PATH}/${{ matrix.example }}.ino" ]; then
+            cp "${EXAMPLE_PATH}/${{ matrix.example }}.ino" "src/main.cpp"
+          elif [ -f "${EXAMPLE_PATH}/${{ matrix.example }}.cpp" ]; then
+            cp "${EXAMPLE_PATH}/${{ matrix.example }}.cpp" "src/main.cpp"
+          else
+            echo "No main sketch file found for example ${{ matrix.example }}"
+            exit 1
+          fi
+
       - name: Build Firmware
-        env:
-          PIOPROJECT_SRC_DIR: examples/${{ matrix.example }}
         run: pio run -e ${{ matrix.platform }}
 
       - name: Rename Firmware and Set Path
