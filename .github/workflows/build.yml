@@ -50,20 +50,6 @@ jobs:
           PIOPROJECT_SRC_DIR: examples/${{ matrix.example }}
         run: pio run -e ${{ matrix.platform }}
 
-      - name: Install Renode
-        if: matrix.platform == 'seeed_xiao_rp2040_led' && matrix.example == 'SineWaveSpeed'
-        run: |
-          wget https://builds.renode.io/renode-latest.linux-portable.tar.gz
-          tar -xzf renode-latest.linux-portable.tar.gz
-          rm renode-latest.linux-portable.tar.gz
-          mv renode_*_portable renode_portable
-          echo "$PWD/renode_portable" >> $GITHUB_PATH
-
-      - name: Run Renode Simulation
-        if: matrix.platform == 'seeed_xiao_rp2040_led' && matrix.example == 'SineWaveSpeed'
-        run: |
-          renode --disable-xwt --console -e "mach create 'rp2040'; machine LoadPlatformDescription @platforms/boards/raspberry_pi_pico.repl; sysbus LoadELF @.pio/build/${{ matrix.platform }}/firmware.elf; start; sleep 2; quit"
-
       - name: Rename Firmware and Set Path
         id: rename
         run: |
@@ -86,36 +72,10 @@ jobs:
           name: ${{ matrix.platform }}-${{ matrix.example }}-firmware
           path: ${{ steps.rename.outputs.firmware_glob }}
 
-  simulation:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ngspice
-          pip install matplotlib numpy
-
-      - name: Run Simulation
-        run: python simulation/run_sim.py
-
-      - name: Upload Simulation Graph
-        uses: actions/upload-artifact@v4
-        with:
-          name: simulation-graph
-          path: simulation/simulation_result.png
-
   release:
     runs-on: ubuntu-latest
     if: github.event_name == 'release'
-    needs: [build, simulation]
+    needs: [build]
     permissions:
       contents: write
 
