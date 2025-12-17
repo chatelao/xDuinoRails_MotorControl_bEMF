@@ -23,7 +23,6 @@
 #include <Arduino.h>
 #include "motor_control_hal.h"
 #include <RotaryEncoder.h>
-#include "StatusLED.h"
 
 #ifdef LED_EDITION
 #include <Adafruit_NeoPixel.h>
@@ -57,13 +56,6 @@ const int ENCODER_PIN_A         =   0;      // CLK pin
 const int ENCODER_PIN_B         =   1;      // DT pin
 const int ENCODER_SWITCH_PIN    =   9; // SW pin
 
-// Define the pin for the status LED.
-const int STATUS_LED_PIN        = LED_BUILTIN;
-const int BEMF_STATUS_LED_PIN   =   2;
-
-// --- Status LED Instance ---
-StatusLED status_led(STATUS_LED_PIN);
-StatusLED bemf_status_led(BEMF_STATUS_LED_PIN);
 
 #ifdef LED_EDITION
 // --- Neopixel LED for LED_EDITION ---
@@ -77,7 +69,6 @@ Adafruit_NeoPixel pixels(1, NEOPIXEL_PIN, NEO_GRB + NEO_KHZ800);
 void on_bemf_update(int raw_bemf) {
   // For this simple example, we'll just print the raw value.
   // In a real application, you would filter and process this data.
-  bemf_status_led.blink(50);
   Serial.print("Raw BEMF: ");
   Serial.println(raw_bemf);
 }
@@ -114,9 +105,6 @@ void setup() {
   // Start the encoder at the minimum position.
   encoder.setPosition(ENCODER_MIN_POSITION);
 
-  // Initialize the status LED.
-  status_led.begin();
-  bemf_status_led.begin();
 
 #ifdef LED_EDITION
   // Initialize Neopixel for LED_EDITION
@@ -133,9 +121,6 @@ void loop() {
   // Poll the encoder for any new movement.
   encoder.tick();
 
-  // Update the status LED.
-  status_led.update();
-  bemf_status_led.update();
 
   // --- Encoder Logic for Speed Control ---
   long newPosition = encoder.getPosition();
@@ -155,7 +140,6 @@ void loop() {
     hal_motor_set_pwm(newSpeed, motorDirection);
     current_speed = newSpeed;
     if (newSpeed > 0) {
-      status_led.on();
 #ifdef LED_EDITION
       if (motorDirection) {
         pixels.setPixelColor(0, pixels.Color(0, 255, 0)); // Green for forward
@@ -165,7 +149,6 @@ void loop() {
       pixels.show();
 #endif
     } else {
-      status_led.off();
 #ifdef LED_EDITION
       pixels.setPixelColor(0, pixels.Color(255, 0, 0)); // Red for stop
       pixels.show();
@@ -183,7 +166,6 @@ void loop() {
       hal_motor_set_pwm(0, motorDirection);
       current_speed = 0;
       encoder.setPosition(ENCODER_MIN_POSITION);
-      status_led.off();
 #ifdef LED_EDITION
       pixels.setPixelColor(0, pixels.Color(255, 0, 0)); // Red for stop
       pixels.show();
@@ -192,7 +174,6 @@ void loop() {
     } else {
       // If the motor is stopped, toggle the direction for the next run.
       motorDirection = !motorDirection;
-      status_led.blink(500); // Blink for 500ms to indicate direction change
       Serial.print("Direction changed to: ");
       Serial.println(motorDirection ? "Forward" : "Reverse");
     }
