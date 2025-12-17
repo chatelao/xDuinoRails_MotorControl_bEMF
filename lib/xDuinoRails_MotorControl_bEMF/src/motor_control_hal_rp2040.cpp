@@ -313,8 +313,7 @@ static void common_motor_init(MotorContext* ctx) {
 
     // Enable Dead Time if in discrete mode
     if (ctx->is_discrete_mode) {
-        pwm_set_dead_time(ctx->motor_pwm_slice_a, PWM_DEAD_TIME_CYCLES, PWM_DEAD_TIME_CYCLES);
-        pwm_set_dead_time(ctx->motor_pwm_slice_b, PWM_DEAD_TIME_CYCLES, PWM_DEAD_TIME_CYCLES);
+        // Dead-time is implemented by offsetting the compare values in hal_motor_set_pwm
     }
     
 #ifdef USE_IRQ_TRIGGER
@@ -440,9 +439,17 @@ void hal_motor_set_pwm(int duty_cycle, bool forward, uint8_t motor_id) {
         uint16_t on_level = map(duty_cycle, PWM_DUTY_MIN, PWM_DUTY_MAX, 0, ctx->pwm_wrap_value);
         uint16_t off_level = 0; // Safe OFF
 
+        // Subtract dead-time from the on_level to prevent shoot-through
+        uint16_t on_level_dead_time;
+        if (on_level > PWM_DEAD_TIME_CYCLES) {
+            on_level_dead_time = on_level - PWM_DEAD_TIME_CYCLES;
+        } else {
+            on_level_dead_time = 0;
+        }
+
         if (forward) {
              // Forward: Left HS (A) + Right LS (B)
-             pwm_set_gpio_level(ctx->pwm_a_pin, on_level);  // HS_A = PWM
+             pwm_set_gpio_level(ctx->pwm_a_pin, on_level_dead_time);  // HS_A = PWM
              pwm_set_gpio_level(ctx->ls_a_pin,  off_level); // LS_A = OFF
 
              pwm_set_gpio_level(ctx->pwm_b_pin, off_level); // HS_B = OFF
@@ -452,7 +459,7 @@ void hal_motor_set_pwm(int duty_cycle, bool forward, uint8_t motor_id) {
              pwm_set_gpio_level(ctx->pwm_a_pin, off_level); // HS_A = OFF
              pwm_set_gpio_level(ctx->ls_a_pin,  on_level);  // LS_A = PWM
 
-             pwm_set_gpio_level(ctx->pwm_b_pin, on_level);  // HS_B = PWM
+             pwm_set_gpio_level(ctx->pwm_b_pin, on_level_dead_time);  // HS_B = PWM
              pwm_set_gpio_level(ctx->ls_b_pin,  off_level); // LS_B = OFF
         }
 
