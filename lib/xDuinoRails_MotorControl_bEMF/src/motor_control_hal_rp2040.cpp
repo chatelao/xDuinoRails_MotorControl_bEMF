@@ -17,6 +17,31 @@
 #include "hardware/dma.h"
 #include "hardware/adc.h"
 #include "hardware/irq.h"
+#include "hardware/structs/pwm.h"
+#include "hardware/regs/addressmap.h"
+
+// Polyfill for pwm_set_dead_time, which may be missing in older SDK versions.
+// This is based on the implementation in later versions of the pico-sdk.
+// These bit definitions may not be present in older headers.
+#ifndef PWM_CH0_CSR_DTR_LSB
+#define PWM_CH0_CSR_DTR_LSB 8
+#endif
+#ifndef PWM_CH0_CSR_DTR_BITS
+#define PWM_CH0_CSR_DTR_BITS 0x0000ff00
+#endif
+#ifndef PWM_CH0_CSR_DTF_LSB
+#define PWM_CH0_CSR_DTF_LSB 0
+#endif
+#ifndef PWM_CH0_CSR_DTF_BITS
+#define PWM_CH0_CSR_DTF_BITS 0x000000ff
+#endif
+
+static inline void polyfill_pwm_set_dead_time(uint slice_num, uint16_t rise, uint16_t fall) {
+    hw_write_masked(&pwm_hw->slice[slice_num].csr,
+                  (rise << PWM_CH0_CSR_DTR_LSB) | (fall << PWM_CH0_CSR_DTF_LSB),
+                  PWM_CH0_CSR_DTR_BITS | PWM_CH0_CSR_DTF_BITS);
+}
+
 
 // =============================================================================
 // Constants & Magic Values
@@ -29,7 +54,7 @@ const uint32_t RP2040_SYSTEM_CLOCK_HZ = 125000000;
 const int      ADC_RESOLUTION_BITS    = 12;
 const float    ADC_MAX_VALUE          = 4095.0f; // 2^12 - 1
 const float    ADC_REF_VOLTAGE        = 3.3f;    // Standard RP2040 logic voltage
-const uint     ADC_BASE_PIN           = 26;      // GPIO 26 is ADC0
+// ADC_BASE_PIN is defined in the Pico SDK (hardware/platform_defs.h)
 const uint     ADC_FIFO_THRESHOLD     = 1;       // Number of samples to trigger DREQ
 
 // PWM Configuration
@@ -313,8 +338,8 @@ static void common_motor_init(MotorContext* ctx) {
 
     // Enable Dead Time if in discrete mode
     if (ctx->is_discrete_mode) {
-        pwm_set_dead_time(ctx->motor_pwm_slice_a, PWM_DEAD_TIME_CYCLES, PWM_DEAD_TIME_CYCLES);
-        pwm_set_dead_time(ctx->motor_pwm_slice_b, PWM_DEAD_TIME_CYCLES, PWM_DEAD_TIME_CYCLES);
+        polyfill_pwm_set_dead_time(ctx->motor_pwm_slice_a, PWM_DEAD_TIME_CYCLES, PWM_DEAD_TIME_CYCLES);
+        polyfill_pwm_set_dead_time(ctx->motor_pwm_slice_b, PWM_DEAD_TIME_CYCLES, PWM_DEAD_TIME_CYCLES);
     }
     
 #ifdef USE_IRQ_TRIGGER
