@@ -60,6 +60,7 @@ struct MotorContext {
     uint motor_pwm_slice_a;
     uint motor_pwm_slice_b;
     uint16_t pwm_wrap_value;
+    uint32_t pwm_frequency;
 
     // DMA and ADC
     int dma_channel;
@@ -283,7 +284,7 @@ static void common_motor_init(MotorContext* ctx) {
 
     uint32_t system_clock = RP2040_SYSTEM_CLOCK_HZ;
     float divider = 1.0f;
-    uint32_t top = system_clock / PWM_FREQUENCY_HZ;
+    uint32_t top = system_clock / ctx->pwm_frequency;
 
     // If 'top' exceeds the 16-bit counter limit (65535), we must use the clock divider.
     if (top > PWM_MAX_TOP) {
@@ -292,7 +293,7 @@ static void common_motor_init(MotorContext* ctx) {
     }
     
     // Calculate the final wrap value with the chosen divider.
-    ctx->pwm_wrap_value = (uint16_t)(system_clock / (PWM_FREQUENCY_HZ * divider)) - 1;
+    ctx->pwm_wrap_value = (uint16_t)(system_clock / (ctx->pwm_frequency * divider)) - 1;
 
     pwm_config motor_pwm_conf = pwm_get_default_config();
     pwm_config_set_clkdiv(        &motor_pwm_conf, divider );
@@ -381,12 +382,13 @@ static void common_motor_init(MotorContext* ctx) {
 // Public HAL Function Implementations
 // =============================================================================
 
-void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, uint8_t bemf_b_pin, hal_bemf_update_callback_t callback, uint8_t motor_id) {
+void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, uint8_t bemf_b_pin, hal_bemf_update_callback_t callback, uint8_t motor_id, uint32_t pwm_frequency) {
     if (motor_id >= MAX_MOTORS) return;
 
     MotorContext* ctx = &g_motors[motor_id];
 
     // Store Pin Config
+    ctx->pwm_frequency = pwm_frequency;
     ctx->pwm_a_pin  = pwm_a_pin;
     ctx->pwm_b_pin  = pwm_b_pin;
     ctx->bemf_a_pin = bemf_a_pin;
@@ -399,7 +401,7 @@ void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, ui
     common_motor_init(ctx);
 }
 
-void hal_motor_init_discrete(uint8_t hs_a_pin, uint8_t ls_a_pin, uint8_t hs_b_pin, uint8_t ls_b_pin, uint8_t bemf_a_pin, uint8_t bemf_b_pin, hal_bemf_update_callback_t callback, uint8_t motor_id) {
+void hal_motor_init_discrete(uint8_t hs_a_pin, uint8_t ls_a_pin, uint8_t hs_b_pin, uint8_t ls_b_pin, uint8_t bemf_a_pin, uint8_t bemf_b_pin, hal_bemf_update_callback_t callback, uint8_t motor_id, uint32_t pwm_frequency) {
     if (motor_id >= MAX_MOTORS) return;
 
     // Validate that HS and LS pins of each half-bridge are on the same PWM Slice.
@@ -410,6 +412,7 @@ void hal_motor_init_discrete(uint8_t hs_a_pin, uint8_t ls_a_pin, uint8_t hs_b_pi
     MotorContext* ctx = &g_motors[motor_id];
 
     // Map pins: pwm_a/b used for HS, ls_a/b for LS.
+    ctx->pwm_frequency = pwm_frequency;
     ctx->pwm_a_pin  = hs_a_pin;
     ctx->ls_a_pin   = ls_a_pin;
     ctx->pwm_b_pin  = hs_b_pin;
