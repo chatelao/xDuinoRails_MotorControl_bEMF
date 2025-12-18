@@ -8,7 +8,7 @@
  * non-blocking motor control and BEMF measurement.
  */
 
-#include "motor_control_hal.h"
+#include <motor_control_hal.h>
 
 #if defined(ARDUINO_ARCH_RP2040)
 
