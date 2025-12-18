@@ -15,7 +15,7 @@
  */
 
 #include <Arduino.h>
-#include "motor_control_hal.h"
+#include <motor_control_hal.h>
 
 #ifdef LED_EDITION
 #include <Adafruit_NeoPixel.h>

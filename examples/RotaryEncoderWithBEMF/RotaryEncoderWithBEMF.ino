@@ -21,7 +21,7 @@
  */
 
 #include <Arduino.h>
-#include "motor_control_hal.h"
+#include <motor_control_hal.h>
 #include <RotaryEncoder.h>
 
 #ifdef LED_EDITION

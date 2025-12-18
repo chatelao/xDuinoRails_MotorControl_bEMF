@@ -15,7 +15,7 @@
  */
 
 #include <Arduino.h>
-#include "motor_control_hal.h"
+#include <motor_control_hal.h>
 
 #if defined(ARDUINO_SEEED_XIAO_RP2040)
 
