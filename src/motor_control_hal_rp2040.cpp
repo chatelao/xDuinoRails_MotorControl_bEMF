@@ -29,7 +29,7 @@ const uint32_t RP2040_SYSTEM_CLOCK_HZ = 125000000;
 const int      ADC_RESOLUTION_BITS    = 12;
 const float    ADC_MAX_VALUE          = 4095.0f; // 2^12 - 1
 const float    ADC_REF_VOLTAGE        = 3.3f;    // Standard RP2040 logic voltage
-const uint     ADC_BASE_PIN           = 26;      // GPIO 26 is ADC0
+const uint     MOTOR_ADC_BASE_PIN     = 26;      // GPIO 26 is ADC0
 const uint     ADC_FIFO_THRESHOLD     = 1;       // Number of samples to trigger DREQ
 
 // PWM Configuration
@@ -160,7 +160,7 @@ static int64_t delayed_adc_trigger_callback(alarm_id_t id, void *user_data) {
     // Perform a blocking read of the current sense pin.
     // NOTE: This assumes a shared current pin or handled by macro.
     // (GPIO 26 is ADC channel 0, hence subtraction)
-    adc_select_input(MOTOR_CURRENT_PIN - ADC_BASE_PIN);
+    adc_select_input(MOTOR_CURRENT_PIN - MOTOR_ADC_BASE_PIN);
     uint16_t current_val = adc_read();
 
     // Calculate threshold: (Limit_Amps * Shunt_Ohms / 3.3V) * 4095
@@ -189,8 +189,8 @@ static int64_t delayed_adc_trigger_callback(alarm_id_t id, void *user_data) {
 
     // Configure ADC for Differential BEMF Measurement
     // We sample the two motor pins (A and B) in rapid succession.
-    uint8_t adc_ch_a = ctx->bemf_a_pin - ADC_BASE_PIN;
-    uint8_t adc_ch_b = ctx->bemf_b_pin - ADC_BASE_PIN;
+    uint8_t adc_ch_a = ctx->bemf_a_pin - MOTOR_ADC_BASE_PIN;
+    uint8_t adc_ch_b = ctx->bemf_b_pin - MOTOR_ADC_BASE_PIN;
 
     // Start with channel B, then round-robin to A.
     // This creates the [B, A, B, A...] sequence in the buffer.
