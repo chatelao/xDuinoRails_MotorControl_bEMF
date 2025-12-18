@@ -12,6 +12,17 @@ This example demonstrates how to use the Hardware Abstraction Layer (HAL) for di
 
 Connect the rotary encoder to the XIAO RP2040 as follows:
 
+```
+      +------------------+
+      | o CLK            |
+      | o DT             |
+      | o GND            |
+      |                  |
+      | o SW  (Switch)   |
+      | o +   (VCC)      |
+      +------------------+
+```
+
 | Encoder Pin | XIAO RP2040 Pin |
 | :---------- | :-------------- |
 | CLK         | D0              |
