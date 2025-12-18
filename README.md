@@ -4,17 +4,7 @@ A hardware abstraction layer (HAL) for PlatformIO, designed for controlling DC m
 
 ## Documentation
 
-*   [How to Use](docs/HOW_TO_USE.en.md)
-*   [User Manual](docs/USER_MANUAL.en.md)
-*   [Core Concepts](docs/CORE_CONCEPTS.en.md)
-*   [Developer Reference](docs/DEVELOPER_REFERENCE.en.md)
-*   [Hardware Control Details](docs/HARDWARE_CONTROL.en.md)
-*   [BEMF Measurement Techniques](docs/BEMF_MEASUREMENT_TECHNIQUES.en.md)
-*   [PWM Frequencies](docs/PWM_FREQUENCIES.en.md)
-*   [Motor Driver ICs](docs/MOTOR_DRIVER_ICS.en.md)
-
-### Supported Hardware
-*   [Seeed Studio XIAO RP2040](docs/SEEED_XIAO_RP2040.en.md)
+Our full documentation is available [here](https://OpenRailAssociation.github.io/xDuinoRails_MotorControl_bEMF/).
 
 ## Features
 
