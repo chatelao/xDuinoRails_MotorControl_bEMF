@@ -34,7 +34,7 @@ Die Bibliothek verwendet DMA, um ADC-Abtastwerte der BEMF in einen Speicherpuffe
 
 ## API-Referenz
 
-Eine detaillierte Beschreibung aller Bibliotheksfunktionen finden Sie in der [Entwicklerreferenz](DEVELOPER_REFERENCE.de.md).
+Eine detaillierte Beschreibung aller Bibliotheksfunktionen finden Sie in der [Entwicklerreferenz](specs/DEVELOPER_REFERENCE.de.md).
 
 ## Erste Schritte
 
