@@ -96,7 +96,8 @@ void setup() {
   Serial.println("Turn the knob to change speed, press it to stop or change direction.");
 
   // Initialize the motor hardware abstraction layer.
-  hal_motor_init(MOTOR_PWM_A_PIN, MOTOR_PWM_B_PIN, MOTOR_BEMF_A_PIN, MOTOR_BEMF_B_PIN, on_bemf_update);
+  hal_motor_init_pwm(MOTOR_PWM_A_PIN, MOTOR_PWM_B_PIN);
+  hal_motor_init_bemf_dma(MOTOR_BEMF_A_PIN, MOTOR_BEMF_B_PIN, on_bemf_update);
 
   // Set up the encoder's switch pin with an internal pull-up resistor.
   // This means the pin will be HIGH by default and LOW when the button is pressed.

@@ -87,23 +87,25 @@ void setup() {
   // Initialize the motor hardware abstraction layer.
     // Using default motor_id = 0 (Implicit)
     #ifdef DISCRETE_H_BRIDGE
-        hal_motor_init_discrete(
+        hal_motor_init_pwm_discrete(
             BRIDGE_HS_A_PIN, BRIDGE_LS_A_PIN,
-            BRIDGE_HS_B_PIN, BRIDGE_LS_B_PIN,
-            MOTOR_BEMF_A_PIN, MOTOR_BEMF_B_PIN
+            BRIDGE_HS_B_PIN, BRIDGE_LS_B_PIN
         );
+        hal_motor_init_bemf_dma(MOTOR_BEMF_A_PIN, MOTOR_BEMF_B_PIN, nullptr);
     #elif defined(LED_EDITION)
         // For the LED edition, we want a very slow PWM frequency to see the fading.
-        hal_motor_init(MOTOR_PWM_A_PIN, MOTOR_PWM_B_PIN, MOTOR_BEMF_A_PIN, MOTOR_BEMF_B_PIN, nullptr, 0, 10);
+        hal_motor_init_pwm(MOTOR_PWM_A_PIN, MOTOR_PWM_B_PIN, 10, 0);
+        hal_motor_init_bemf_dma(MOTOR_BEMF_A_PIN, MOTOR_BEMF_B_PIN, nullptr, 0);
     #else
-        hal_motor_init(MOTOR_PWM_A_PIN, MOTOR_PWM_B_PIN, MOTOR_BEMF_A_PIN, MOTOR_BEMF_B_PIN);
+        hal_motor_init_pwm(MOTOR_PWM_A_PIN, MOTOR_PWM_B_PIN);
+        hal_motor_init_bemf_dma(MOTOR_BEMF_A_PIN, MOTOR_BEMF_B_PIN, nullptr);
     #endif
 
     #if defined(ARDUINO_SEEED_XIAO_RP2040) && !defined(LED_EDITION) && !defined(DISCRETE_H_BRIDGE)
         // Initialize the onboard LEDs as a second "motor" (parallel indication)
-        // BEMF pins are set to undefined to disable measurement.
         // The onboard LEDs also need a slow frequency to be visible.
-        hal_motor_init(LED_PWM_A_PIN, LED_PWM_B_PIN, MOTOR_PIN_UNDEFINED, MOTOR_PIN_UNDEFINED, nullptr, 1, 10);
+        hal_motor_init_pwm(LED_PWM_A_PIN, LED_PWM_B_PIN, 10, 1);
+        // No BEMF for the LEDs
     #endif
 
 #if defined(ARDUINO_SEEED_XIAO_RP2040)

@@ -39,7 +39,8 @@ void setup() {
   Serial.println("Solenoid Position Check Example");
 
   // Initialize the motor HAL. Callback is not needed for this synchronous test.
-  hal_motor_init(MOTOR_PWM_A_PIN, MOTOR_PWM_B_PIN, MOTOR_BEMF_A_PIN, MOTOR_BEMF_B_PIN);
+  hal_motor_init_pwm(MOTOR_PWM_A_PIN, MOTOR_PWM_B_PIN);
+  hal_motor_init_bemf_dma(MOTOR_BEMF_A_PIN, MOTOR_BEMF_B_PIN, nullptr);
 }
 
 void loop() {

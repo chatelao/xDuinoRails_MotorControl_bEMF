@@ -53,41 +53,36 @@ const uint8_t MOTOR_PIN_UNDEFINED = 0xFF;
 typedef void (*hal_bemf_update_callback_t)(int raw_bemf_value);
 
 /**
- * @brief Initializes the low-level hardware for motor control.
+ * @brief Initializes the PWM hardware for a standard 2-pin motor driver.
  *
- * This function configures the hardware timers, PWM peripherals, ADC, and DMA
- * for hardware-accelerated motor control and BEMF measurement. It must be
- * called once during the application's setup phase.
- *
- * @param pwm_a_pin The GPIO pin number for PWM channel A (e.g., forward).
- * @param pwm_b_pin The GPIO pin number for PWM channel B (e.g., reverse).
- * @param bemf_a_pin The GPIO pin number for ADC input connected to motor terminal A.
- *                   Pass MOTOR_PIN_UNDEFINED (0xFF) to disable BEMF measurement.
- * @param bemf_b_pin The GPIO pin number for ADC input connected to motor terminal B.
- *                   Pass MOTOR_PIN_UNDEFINED (0xFF) to disable BEMF measurement.
- * @param callback A pointer to a function that will be called from an interrupt
- *                 context with new BEMF data.
- * @param motor_id The index of the motor to control (0 to MAX_MOTORS-1). Defaults to 0.
+ * @param pwm_a_pin The GPIO pin for PWM channel A (e.g., forward).
+ * @param pwm_b_pin The GPIO pin for PWM channel B (e.g., reverse).
+ * @param pwm_frequency The desired PWM frequency in Hz.
+ * @param motor_id The index of the motor to control.
  */
-void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, uint8_t bemf_b_pin, hal_bemf_update_callback_t callback = nullptr, uint8_t motor_id = 0, uint32_t pwm_frequency = 20000);
+void hal_motor_init_pwm(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint32_t pwm_frequency = 20000, uint8_t motor_id = 0);
 
 /**
- * @brief Initializes the low-level hardware for a discrete H-Bridge (4-Pin).
- *
- * This variant of the initialization function is intended for discrete H-Bridges
- * where each MOSFET is driven by a separate pin (High-Side and Low-Side).
- * It enables hardware dead-time insertion to prevent shoot-through.
+ * @brief Initializes the PWM hardware for a discrete 4-pin H-Bridge.
  *
  * @param hs_a_pin High-Side pin for Half-Bridge A.
  * @param ls_a_pin Low-Side pin for Half-Bridge A.
  * @param hs_b_pin High-Side pin for Half-Bridge B.
  * @param ls_b_pin Low-Side pin for Half-Bridge B.
- * @param bemf_a_pin ADC input pin for Half-Bridge A.
- * @param bemf_b_pin ADC input pin for Half-Bridge B.
- * @param callback Function to call with new BEMF data.
- * @param motor_id The index of the motor to control (0 to MAX_MOTORS-1). Defaults to 0.
+ * @param pwm_frequency The desired PWM frequency in Hz.
+ * @param motor_id The index of the motor to control.
  */
-void hal_motor_init_discrete(uint8_t hs_a_pin, uint8_t ls_a_pin, uint8_t hs_b_pin, uint8_t ls_b_pin, uint8_t bemf_a_pin, uint8_t bemf_b_pin, hal_bemf_update_callback_t callback = nullptr, uint8_t motor_id = 0, uint32_t pwm_frequency = 20000);
+void hal_motor_init_pwm_discrete(uint8_t hs_a_pin, uint8_t ls_a_pin, uint8_t hs_b_pin, uint8_t ls_b_pin, uint32_t pwm_frequency = 20000, uint8_t motor_id = 0);
+
+/**
+ * @brief Initializes the BEMF sensing hardware using DMA.
+ *
+ * @param bemf_a_pin The ADC pin for motor terminal A.
+ * @param bemf_b_pin The ADC pin for motor terminal B.
+ * @param callback Function to be called with new BEMF data.
+ * @param motor_id The index of the motor to control.
+ */
+void hal_motor_init_bemf_dma(uint8_t bemf_a_pin, uint8_t bemf_b_pin, hal_bemf_update_callback_t callback, uint8_t motor_id = 0);
 
 /**
  * @brief Sets the motor's PWM duty cycle and direction.
