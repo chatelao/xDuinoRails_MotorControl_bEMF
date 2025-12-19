@@ -38,7 +38,7 @@ package "Functions" {
   interface "Public API\n(motor_control_hal.h)" as PublicAPI {
     + hal_motor_init_pwm(pwm_a_pin, pwm_b_pin, pwm_frequency, motor_id)
     + hal_motor_init_pwm_discrete(hs_a_pin, ls_a_pin, hs_b_pin, ls_b_pin, pwm_frequency, motor_id)
-    + hal_motor_init_bemf_dma(bemf_a_pin, bemf_b_pin, callback, motor_id)
+    + hal_motor_init_bemf_adc_dma(bemf_a_pin, bemf_b_pin, callback, motor_id)
     + hal_motor_set_pwm(duty_cycle, forward, motor_id)
     + hal_motor_get_bemf_buffer(buffer, last_write_pos, motor_id)
     + hal_motor_get_current_buffer(buffer, last_write_pos, motor_id)

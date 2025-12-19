@@ -82,7 +82,7 @@ void hal_motor_init_pwm_discrete(uint8_t hs_a_pin, uint8_t ls_a_pin, uint8_t hs_
  * @param callback Function to be called with new BEMF data.
  * @param motor_id The index of the motor to control.
  */
-void hal_motor_init_bemf_dma(uint8_t bemf_a_pin, uint8_t bemf_b_pin, hal_bemf_update_callback_t callback, uint8_t motor_id = 0);
+void hal_motor_init_bemf_adc_dma(uint8_t bemf_a_pin, uint8_t bemf_b_pin, hal_bemf_update_callback_t callback, uint8_t motor_id = 0);
 
 /**
  * @brief Sets the motor's PWM duty cycle and direction.

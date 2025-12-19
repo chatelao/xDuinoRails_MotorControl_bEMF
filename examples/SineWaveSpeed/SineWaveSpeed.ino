@@ -91,14 +91,14 @@ void setup() {
             BRIDGE_HS_A_PIN, BRIDGE_LS_A_PIN,
             BRIDGE_HS_B_PIN, BRIDGE_LS_B_PIN
         );
-        hal_motor_init_bemf_dma(MOTOR_BEMF_A_PIN, MOTOR_BEMF_B_PIN, nullptr);
+        hal_motor_init_bemf_adc_dma(MOTOR_BEMF_A_PIN, MOTOR_BEMF_B_PIN, nullptr);
     #elif defined(LED_EDITION)
         // For the LED edition, we want a very slow PWM frequency to see the fading.
         hal_motor_init_pwm(MOTOR_PWM_A_PIN, MOTOR_PWM_B_PIN, 10, 0);
-        hal_motor_init_bemf_dma(MOTOR_BEMF_A_PIN, MOTOR_BEMF_B_PIN, nullptr, 0);
+        hal_motor_init_bemf_adc_dma(MOTOR_BEMF_A_PIN, MOTOR_BEMF_B_PIN, nullptr, 0);
     #else
         hal_motor_init_pwm(MOTOR_PWM_A_PIN, MOTOR_PWM_B_PIN);
-        hal_motor_init_bemf_dma(MOTOR_BEMF_A_PIN, MOTOR_BEMF_B_PIN, nullptr);
+        hal_motor_init_bemf_adc_dma(MOTOR_BEMF_A_PIN, MOTOR_BEMF_B_PIN, nullptr);
     #endif
 
     #if defined(ARDUINO_SEEED_XIAO_RP2040) && !defined(LED_EDITION) && !defined(DISCRETE_H_BRIDGE)

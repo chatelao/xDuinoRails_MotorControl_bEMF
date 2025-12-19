@@ -353,7 +353,7 @@ void hal_motor_init_pwm_discrete(uint8_t hs_a_pin, uint8_t ls_a_pin, uint8_t hs_
     pwm_init_common(ctx);
 }
 
-void hal_motor_init_bemf_dma(uint8_t bemf_a_pin, uint8_t bemf_b_pin, hal_bemf_update_callback_t callback, uint8_t motor_id) {
+void hal_motor_init_bemf_adc_dma(uint8_t bemf_a_pin, uint8_t bemf_b_pin, hal_bemf_update_callback_t callback, uint8_t motor_id) {
     if (motor_id >= MAX_MOTORS) return;
     MotorContext* ctx = &g_motors[motor_id];
     if (!ctx->is_initialized) return; // PWM must be initialized first
