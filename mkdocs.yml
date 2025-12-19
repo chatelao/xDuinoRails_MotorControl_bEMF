@@ -1,5 +1,5 @@
 site_name: xDuinoRails Motor Control bEMF HAL
-docs_dir: docs
+docs_dir: user_documentation
 theme:
   name: material
   language: en
@@ -11,13 +11,13 @@ nav:
     - 'Seeed Studio XIAO RP2040': 'SEEED_XIAO_RP2040.en.md'
     - 'Motor Driver ICs': 'MOTOR_DRIVER_ICS.en.md'
   - 'Specifications':
-    - 'Core Concepts': 'specs/CORE_CONCEPTS.en.md'
-    - 'Developer Reference': 'specs/DEVELOPER_REFERENCE.en.md'
-    - 'Hardware Control': 'specs/HARDWARE_CONTROL.en.md'
-    - 'BEMF Measurement': 'specs/BEMF_MEASUREMENT_TECHNIQUES.en.md'
-    - 'PWM Frequencies': 'specs/PWM_FREQUENCIES.en.md'
-    - 'Discrete H-Bridge Plan': 'specs/DISCRETE_H_BRIDGE_PLAN.en.md'
-    - 'Technical Debts': 'specs/TECHNICAL_DEBTS.en.md'
-    - 'Testing Improvements': 'specs/TESTING_IMPROVEMENTS.en.md'
-  - 'Contributing': 'specs/CONTRIBUTING.en.md'
-  - 'Roadmap': 'specs/ROADMAP.md'
+    - 'Core Concepts': 'specification/CORE_CONCEPTS.en.md'
+    - 'Developer Reference': 'specification/DEVELOPER_REFERENCE.en.md'
+    - 'Hardware Control': 'specification/HARDWARE_CONTROL.en.md'
+    - 'BEMF Measurement': 'specification/BEMF_MEASUREMENT_TECHNIQUES.en.md'
+    - 'PWM Frequencies': 'specification/PWM_FREQUENCIES.en.md'
+    - 'Discrete H-Bridge Plan': 'specification/DISCRETE_H_BRIDGE_PLAN.en.md'
+    - 'Technical Debts': 'specification/TECHNICAL_DEBTS.en.md'
+    - 'Testing Improvements': 'specification/TESTING_IMPROVEMENTS.en.md'
+  - 'Contributing': 'specification/CONTRIBUTING.en.md'
+  - 'Roadmap': 'specification/ROADMAP.md'
