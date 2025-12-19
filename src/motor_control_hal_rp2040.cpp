@@ -86,7 +86,7 @@ static volatile bool g_adc_busy = false;
 static void dma_irq_handler();
 static int64_t delayed_adc_trigger_callback(alarm_id_t id, void *user_data);
 static void on_pwm_wrap();
-static void common_motor_init(MotorContext* ctx);
+static void pwm_init_common(MotorContext* ctx);
 
 // =============================================================================
 // Internal Helper Functions & ISRs
@@ -254,196 +254,155 @@ static void on_pwm_wrap() {
 }
 
 /**
- * @brief Common Initialization Logic for Motor Context.
+ * @brief Common PWM Initialization Logic.
  *
- * Configures PWM frequency, slices, interrupts, and ADC/DMA.
+ * Configures PWM frequency, slices, interrupts, and GPIO functions.
  * Shared between standard and discrete init modes.
  */
-static void common_motor_init(MotorContext* ctx) {
-    bool bemf_enabled = (ctx->bemf_a_pin != MOTOR_PIN_UNDEFINED) && (ctx->bemf_b_pin != MOTOR_PIN_UNDEFINED);
-    ctx->skip_measurement = !bemf_enabled;
-
-    // --- PWM Setup ---
-    gpio_set_function( ctx->pwm_a_pin, GPIO_FUNC_PWM );
-    gpio_set_function( ctx->pwm_b_pin, GPIO_FUNC_PWM );
+static void pwm_init_common(MotorContext* ctx) {
+    // --- PWM Pin Setup ---
+    gpio_set_function(ctx->pwm_a_pin, GPIO_FUNC_PWM);
+    gpio_set_function(ctx->pwm_b_pin, GPIO_FUNC_PWM);
     
     if (ctx->is_discrete_mode) {
-        // Discrete Mode: Use INVERTED polarity.
-        // This clever trick shifts the PWM_IRQ_WRAP interrupt to occur exactly
-        // in the middle of the OFF-phase (null-phase), allowing us to trigger
-        // the ADC for BEMF measurement with perfect hardware timing, eliminating
-        // the need for a software delay timer.
-        gpio_set_outover(  ctx->pwm_b_pin, GPIO_OVERRIDE_INVERT );
-        gpio_set_outover(  ctx->pwm_a_pin, GPIO_OVERRIDE_INVERT );
-
-        gpio_set_function( ctx->ls_a_pin, GPIO_FUNC_PWM );
-        gpio_set_function( ctx->ls_b_pin, GPIO_FUNC_PWM );
-        gpio_set_outover(  ctx->ls_a_pin, GPIO_OVERRIDE_INVERT );
-        gpio_set_outover(  ctx->ls_b_pin, GPIO_OVERRIDE_INVERT );
-
+        // Discrete Mode uses INVERTED polarity for clever hardware-timed BEMF.
+        gpio_set_outover(ctx->pwm_b_pin, GPIO_OVERRIDE_INVERT);
+        gpio_set_outover(ctx->pwm_a_pin, GPIO_OVERRIDE_INVERT);
+        gpio_set_function(ctx->ls_a_pin, GPIO_FUNC_PWM);
+        gpio_set_function(ctx->ls_b_pin, GPIO_FUNC_PWM);
+        gpio_set_outover(ctx->ls_a_pin, GPIO_OVERRIDE_INVERT);
+        gpio_set_outover(ctx->ls_b_pin, GPIO_OVERRIDE_INVERT);
         // Initial OFF state (Level TOP = OFF due to inversion)
         pwm_set_gpio_level(ctx->ls_a_pin, PWM_MAX_TOP);
         pwm_set_gpio_level(ctx->ls_b_pin, PWM_MAX_TOP);
         pwm_set_gpio_level(ctx->pwm_a_pin, PWM_MAX_TOP);
         pwm_set_gpio_level(ctx->pwm_b_pin, PWM_MAX_TOP);
     } else {
-        // Standard Mode: Invert the PWM output.
-        // Often required for driver logic or to match historical behavior.
-        gpio_set_outover(  ctx->pwm_b_pin, GPIO_OVERRIDE_INVERT);
-        gpio_set_outover(  ctx->pwm_a_pin, GPIO_OVERRIDE_INVERT);
-
-        // Set initial duty to "OFF" state. (Wrap/Top = OFF due to Inversion)
+        // Standard Mode also inverts for driver compatibility.
+        gpio_set_outover(ctx->pwm_b_pin, GPIO_OVERRIDE_INVERT);
+        gpio_set_outover(ctx->pwm_a_pin, GPIO_OVERRIDE_INVERT);
+        // Initial OFF state
         pwm_set_gpio_level(ctx->pwm_a_pin, PWM_MAX_TOP);
         pwm_set_gpio_level(ctx->pwm_b_pin, PWM_MAX_TOP);
     }
 
     // --- PWM Frequency Calculation ---
-    // Formula: SystemClock = Frequency * (WrapValue + 1) * Divider
-
     uint32_t system_clock = RP2040_SYSTEM_CLOCK_HZ;
     float divider = 1.0f;
     uint32_t top = system_clock / ctx->pwm_frequency;
-
-    // If 'top' exceeds the 16-bit counter limit (65535), we must use the clock divider.
     if (top > PWM_MAX_TOP) {
         divider = (float)top / (float)PWM_MAX_TOP;
         if (divider > PWM_MAX_DIVIDER) divider = PWM_MAX_DIVIDER;
     }
-    
-    // Calculate the final wrap value with the chosen divider.
     ctx->pwm_wrap_value = (uint16_t)(system_clock / (ctx->pwm_frequency * divider)) - 1;
 
+    // --- PWM Peripheral Configuration ---
     pwm_config motor_pwm_conf = pwm_get_default_config();
-    pwm_config_set_clkdiv(        &motor_pwm_conf, divider );
-    pwm_config_set_wrap(          &motor_pwm_conf, ctx->pwm_wrap_value );
-    pwm_config_set_phase_correct( &motor_pwm_conf, true ); // Phase correct for symmetric pulses
+    pwm_config_set_clkdiv(&motor_pwm_conf, divider);
+    pwm_config_set_wrap(&motor_pwm_conf, ctx->pwm_wrap_value);
+    pwm_config_set_phase_correct(&motor_pwm_conf, true);
       
-    // Apply configuration to slices
     ctx->motor_pwm_slice_a = pwm_gpio_to_slice_num(ctx->pwm_a_pin);
     ctx->motor_pwm_slice_b = pwm_gpio_to_slice_num(ctx->pwm_b_pin);
     
-    // Reset counters to 0 to ensure synchronization
     pwm_set_counter(ctx->motor_pwm_slice_a, 0);
     pwm_set_counter(ctx->motor_pwm_slice_b, 0);
 
-    // Initialize slices but do NOT enable them yet.
     pwm_init(ctx->motor_pwm_slice_a, &motor_pwm_conf, false);
     pwm_init(ctx->motor_pwm_slice_b, &motor_pwm_conf, false);
-
-    // Enable Dead Time if in discrete mode
-    if (ctx->is_discrete_mode) {
-        // Dead-time is implemented by offsetting the compare values in hal_motor_set_pwm
-    }
     
-#ifdef USE_IRQ_TRIGGER
-    if (bemf_enabled) {
-        // Enable PWM Wrap Interrupt for ADC synchronization
-        pwm_clear_irq(ctx->motor_pwm_slice_a);
-        pwm_set_irq_enabled(ctx->motor_pwm_slice_a, true);
-        irq_set_exclusive_handler(PWM_IRQ_WRAP, on_pwm_wrap);
-        irq_set_enabled(PWM_IRQ_WRAP, true);
-    }
-#endif
-    
-    // Start both slices exactly synchronously.
+    // Start both slices synchronously.
     uint32_t mask = (1u << ctx->motor_pwm_slice_a) | (1u << ctx->motor_pwm_slice_b);
     hw_set_bits(&pwm_hw->en, mask);
         
-    // --- ADC and DMA Setup ---
-    if (bemf_enabled) {
-        static bool adc_initialized = false;
-        if (!adc_initialized) {
-            adc_init();
-            // Setup ADC FIFO:
-            // - Shift: true (required for DMA to read correctly)
-            // - DREQ: true (enable DMA request from ADC)
-            // - Threshold: ADC_FIFO_THRESHOLD (trigger DREQ after N samples)
-            // - Err: false, Scale: false
-            adc_fifo_setup(true, true, ADC_FIFO_THRESHOLD, false, false);
-            adc_initialized = true;
-        }
-
-        adc_gpio_init(ctx->bemf_a_pin);
-        adc_gpio_init(ctx->bemf_b_pin);
-
-        // --- DMA Configuration ---
-        ctx->dma_channel = dma_claim_unused_channel(true);
-        dma_channel_config dma_config = dma_channel_get_default_config(ctx->dma_channel);
-        channel_config_set_transfer_data_size(&dma_config, DMA_SIZE_16); // 16-bit transfers (uint16_t samples)
-        channel_config_set_read_increment(&dma_config, false);           // Read from fixed ADC FIFO address
-        channel_config_set_write_increment(&dma_config, true);           // Increment write address (fill buffer)
-        channel_config_set_dreq(&dma_config, DREQ_ADC);                  // Pace transfers based on ADC availability
-
-        // Configure Ring Buffer.
-        channel_config_set_ring(&dma_config, true, __builtin_ctz(BEMF_RING_BUFFER_SIZE * sizeof(uint16_t)));
-
-        dma_channel_configure(
-            ctx->dma_channel,
-            &dma_config,
-            ctx->bemf_ring_buffer, // Destination
-            &adc_hw->fifo,         // Source
-            BEMF_RING_BUFFER_SIZE, // Transfer count
-            false                  // Do not start yet
-        );
-
-        // Setup DMA Interrupt
-        dma_channel_set_irq0_enabled(ctx->dma_channel, true);
-        irq_set_exclusive_handler(DMA_IRQ_0, dma_irq_handler);
-        irq_set_enabled(DMA_IRQ_0, true);
-    }
-    
     ctx->is_initialized = true;
 }
-
 
 // =============================================================================
 // Public HAL Function Implementations
 // =============================================================================
 
-void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, uint8_t bemf_b_pin, hal_bemf_update_callback_t callback, uint8_t motor_id, uint32_t pwm_frequency) {
+void hal_motor_init_pwm(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint32_t pwm_frequency, uint8_t motor_id) {
     if (motor_id >= MAX_MOTORS) return;
-
     MotorContext* ctx = &g_motors[motor_id];
 
-    // Store Pin Config
     ctx->pwm_frequency = pwm_frequency;
-    ctx->pwm_a_pin  = pwm_a_pin;
-    ctx->pwm_b_pin  = pwm_b_pin;
-    ctx->bemf_a_pin = bemf_a_pin;
-    ctx->bemf_b_pin = bemf_b_pin;
-    ctx->bemf_callback = callback;
-    ctx->adc_trigger_delay_us = BEMF_MEASUREMENT_DELAY_US;
+    ctx->pwm_a_pin = pwm_a_pin;
+    ctx->pwm_b_pin = pwm_b_pin;
     ctx->dma_channel = -1;
     ctx->is_discrete_mode = false;
 
-    common_motor_init(ctx);
+    pwm_init_common(ctx);
 }
 
-void hal_motor_init_discrete(uint8_t hs_a_pin, uint8_t ls_a_pin, uint8_t hs_b_pin, uint8_t ls_b_pin, uint8_t bemf_a_pin, uint8_t bemf_b_pin, hal_bemf_update_callback_t callback, uint8_t motor_id, uint32_t pwm_frequency) {
+void hal_motor_init_pwm_discrete(uint8_t hs_a_pin, uint8_t ls_a_pin, uint8_t hs_b_pin, uint8_t ls_b_pin, uint32_t pwm_frequency, uint8_t motor_id) {
     if (motor_id >= MAX_MOTORS) return;
-
-    // Validate that HS and LS pins of each half-bridge are on the same PWM Slice.
-    // This is required to use hardware dead-time and ensure synchronization.
     if (pwm_gpio_to_slice_num(hs_a_pin) != pwm_gpio_to_slice_num(ls_a_pin)) return;
     if (pwm_gpio_to_slice_num(hs_b_pin) != pwm_gpio_to_slice_num(ls_b_pin)) return;
 
     MotorContext* ctx = &g_motors[motor_id];
 
-    // Map pins: pwm_a/b used for HS, ls_a/b for LS.
     ctx->pwm_frequency = pwm_frequency;
-    ctx->pwm_a_pin  = hs_a_pin;
-    ctx->ls_a_pin   = ls_a_pin;
-    ctx->pwm_b_pin  = hs_b_pin;
-    ctx->ls_b_pin   = ls_b_pin;
+    ctx->pwm_a_pin = hs_a_pin;
+    ctx->ls_a_pin = ls_a_pin;
+    ctx->pwm_b_pin = hs_b_pin;
+    ctx->ls_b_pin = ls_b_pin;
+    ctx->dma_channel = -1;
+    ctx->is_discrete_mode = true;
+
+    pwm_init_common(ctx);
+}
+
+void hal_motor_init_bemf_dma(uint8_t bemf_a_pin, uint8_t bemf_b_pin, hal_bemf_update_callback_t callback, uint8_t motor_id) {
+    if (motor_id >= MAX_MOTORS) return;
+    MotorContext* ctx = &g_motors[motor_id];
+    if (!ctx->is_initialized) return; // PWM must be initialized first
 
     ctx->bemf_a_pin = bemf_a_pin;
     ctx->bemf_b_pin = bemf_b_pin;
     ctx->bemf_callback = callback;
     ctx->adc_trigger_delay_us = BEMF_MEASUREMENT_DELAY_US;
-    ctx->dma_channel = -1;
-    ctx->is_discrete_mode = true;
 
-    common_motor_init(ctx);
+    bool bemf_enabled = (bemf_a_pin != MOTOR_PIN_UNDEFINED) && (bemf_b_pin != MOTOR_PIN_UNDEFINED);
+    ctx->skip_measurement = !bemf_enabled;
+    if (!bemf_enabled) return;
+
+    // --- ADC and DMA Setup ---
+    static bool adc_initialized = false;
+    if (!adc_initialized) {
+        adc_init();
+        adc_fifo_setup(true, true, ADC_FIFO_THRESHOLD, false, false);
+        adc_initialized = true;
+    }
+
+    adc_gpio_init(ctx->bemf_a_pin);
+    adc_gpio_init(ctx->bemf_b_pin);
+
+    ctx->dma_channel = dma_claim_unused_channel(true);
+    dma_channel_config dma_config = dma_channel_get_default_config(ctx->dma_channel);
+    channel_config_set_transfer_data_size(&dma_config, DMA_SIZE_16);
+    channel_config_set_read_increment(&dma_config, false);
+    channel_config_set_write_increment(&dma_config, true);
+    channel_config_set_dreq(&dma_config, DREQ_ADC);
+    channel_config_set_ring(&dma_config, true, __builtin_ctz(BEMF_RING_BUFFER_SIZE * sizeof(uint16_t)));
+
+    dma_channel_configure(
+        ctx->dma_channel, &dma_config,
+        ctx->bemf_ring_buffer, &adc_hw->fifo,
+        BEMF_RING_BUFFER_SIZE, false
+    );
+
+    dma_channel_set_irq0_enabled(ctx->dma_channel, true);
+    irq_set_exclusive_handler(DMA_IRQ_0, dma_irq_handler);
+    irq_set_enabled(DMA_IRQ_0, true);
+
+    // Enable PWM Wrap Interrupt for ADC synchronization
+    #ifdef USE_IRQ_TRIGGER
+        pwm_clear_irq(ctx->motor_pwm_slice_a);
+        pwm_set_irq_enabled(ctx->motor_pwm_slice_a, true);
+        irq_set_exclusive_handler(PWM_IRQ_WRAP, on_pwm_wrap);
+        irq_set_enabled(PWM_IRQ_WRAP, true);
+    #endif
 }
 
 void hal_motor_set_pwm(int duty_cycle, bool forward, uint8_t motor_id) {

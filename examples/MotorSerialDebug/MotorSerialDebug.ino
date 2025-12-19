@@ -66,8 +66,9 @@ void setup() {
   Serial.println("Send 0-9 for speed (0% - 90%), '-' to toggle direction");
 
   // Initialize the motor hardware abstraction layer.
-  // The BEMF callback is optional and defaults to nullptr.
-  hal_motor_init(MOTOR_PWM_A_PIN, MOTOR_PWM_B_PIN, MOTOR_BEMF_A_PIN, MOTOR_BEMF_B_PIN);
+  hal_motor_init_pwm(MOTOR_PWM_A_PIN, MOTOR_PWM_B_PIN);
+  // BEMF sensing is optional. To enable it, uncomment the following line.
+  // hal_motor_init_bemf_dma(MOTOR_BEMF_A_PIN, MOTOR_BEMF_B_PIN, nullptr);
 
   // Initial state: Stopped, Forward
   hal_motor_set_pwm(0, true);
