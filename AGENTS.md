@@ -1,7 +1,7 @@
 AGENTS.md
 
 # Must Read before and Update After Execution
-- [ ] specs/TESTING_IMPROVEMENTS.en.md
+- [ ] specification/TESTING_IMPROVEMENTS.en.md
 
 # Structure
 - Keep sources in “src”, exceptions are possible depending on special technologies
@@ -10,12 +10,12 @@ AGENTS.md
 - Update the documentation after each task
 - Create and maintain on every change a README.md, add the usual summary
 - Create a LICENSE.md if missing with AGPL 3.0 (Affero GNU)
-- Create and maintain on every change a “specs/CONTRIBUTING.md”
-- Keep all user documentation in the “/docs” directory
-- Keep all contributor and specification documents in the “/specs” directory
+- Create and maintain on every change a “specification/CONTRIBUTING.md”
+- Keep all user documentation in the “/user_documentation” directory
+- Keep all contributor and specification documents in the “/specification” directory
 - Create and maintain on every change the following files:
-  “docs/HOW_TO_USE.md”, “docs/USER_MANUAL.md”,
-  “specs/CORE_CONCEPTS.md”, “specs/DEVELOPER_REFERENCE.md” and “specs/TECHNICAL_DEBTS.md”
+  “user_documentation/HOW_TO_USE.md”, “user_documentation/USER_MANUAL.md”,
+  “specification/CORE_CONCEPTS.md”, “specification/DEVELOPER_REFERENCE.md” and “specification/TECHNICAL_DEBTS.md”
 - Bilingual documentation files must have identical, English base names, with suffixes `.en.md` for English and `.de.md` for German.
 
 # Code
