@@ -16,12 +16,10 @@
 #define MAX_MOTORS 2
 #endif
 
-// PWM frequency for the motor driver
+// BEMF ring buffer size, adapted to the PWM frequency
 #ifdef LED_EDITION
-const uint32_t PWM_FREQUENCY_HZ      = 10;
 const uint32_t BEMF_RING_BUFFER_SIZE = 64;
 #else
-const uint32_t PWM_FREQUENCY_HZ      = 20000;
 const uint32_t BEMF_RING_BUFFER_SIZE = 4;
 #endif
 
@@ -71,7 +69,7 @@ typedef void (*hal_bemf_update_callback_t)(int raw_bemf_value);
  *                 context with new BEMF data.
  * @param motor_id The index of the motor to control (0 to MAX_MOTORS-1). Defaults to 0.
  */
-void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, uint8_t bemf_b_pin, hal_bemf_update_callback_t callback, uint8_t motor_id = 0);
+void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, uint8_t bemf_b_pin, hal_bemf_update_callback_t callback = nullptr, uint8_t motor_id = 0, uint32_t pwm_frequency = 20000);
 
 /**
  * @brief Initializes the low-level hardware for a discrete H-Bridge (4-Pin).
@@ -89,7 +87,7 @@ void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, ui
  * @param callback Function to call with new BEMF data.
  * @param motor_id The index of the motor to control (0 to MAX_MOTORS-1). Defaults to 0.
  */
-void hal_motor_init_discrete(uint8_t hs_a_pin, uint8_t ls_a_pin, uint8_t hs_b_pin, uint8_t ls_b_pin, uint8_t bemf_a_pin, uint8_t bemf_b_pin, hal_bemf_update_callback_t callback, uint8_t motor_id = 0);
+void hal_motor_init_discrete(uint8_t hs_a_pin, uint8_t ls_a_pin, uint8_t hs_b_pin, uint8_t ls_b_pin, uint8_t bemf_a_pin, uint8_t bemf_b_pin, hal_bemf_update_callback_t callback = nullptr, uint8_t motor_id = 0, uint32_t pwm_frequency = 20000);
 
 /**
  * @brief Sets the motor's PWM duty cycle and direction.
