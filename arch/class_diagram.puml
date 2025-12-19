@@ -36,12 +36,12 @@ package "Data Structure" {
 
 package "Functions" {
   interface "Public API\n(motor_control_hal.h)" as PublicAPI {
-    + hal_motor_init()
-    + hal_motor_init_discrete()
-    + hal_motor_set_pwm()
-    + hal_motor_get_bemf_buffer()
-    + hal_motor_get_current_buffer()
-    + hal_motor_check_solenoid_position()
+    + hal_motor_init(pwm_a_pin, pwm_b_pin, bemf_a_pin, bemf_b_pin, callback, motor_id, pwm_frequency)
+    + hal_motor_init_discrete(hs_a_pin, ls_a_pin, hs_b_pin, ls_b_pin, bemf_a_pin, bemf_b_pin, callback, motor_id, pwm_frequency)
+    + hal_motor_set_pwm(duty_cycle, forward, motor_id)
+    + hal_motor_get_bemf_buffer(buffer, last_write_pos, motor_id)
+    + hal_motor_get_current_buffer(buffer, last_write_pos, motor_id)
+    + hal_motor_check_solenoid_position(ping_pwm_value, ping_duration_ms, measurement_delay_us, response_a, response_b, motor_id)
   }
 
   interface "Internal Implementation\n(motor_control_hal_rp2040.cpp)" as InternalImpl {
