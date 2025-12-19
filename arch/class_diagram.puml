@@ -35,7 +35,7 @@ package "Data Structure" {
 }
 
 package "Functions" {
-  component "Public API\n(motor_control_hal.h)" as PublicAPI {
+  interface "Public API\n(motor_control_hal.h)" as PublicAPI {
     + hal_motor_init()
     + hal_motor_init_discrete()
     + hal_motor_set_pwm()
@@ -44,7 +44,7 @@ package "Functions" {
     + hal_motor_check_solenoid_position()
   }
 
-  component "Internal Implementation\n(motor_control_hal_rp2040.cpp)" as InternalImpl {
+  interface "Internal Implementation\n(motor_control_hal_rp2040.cpp)" as InternalImpl {
     - dma_irq_handler()
     - on_pwm_wrap()
     - delayed_adc_trigger_callback()
@@ -53,8 +53,8 @@ package "Functions" {
   }
 }
 
-PublicAPI -right-> MotorContext : (modifies)
-InternalImpl -right-> MotorContext : (modifies)
+PublicAPI --> MotorContext : (modifies)
+InternalImpl --> MotorContext : (modifies)
 
 note on link
   Operates on an instance of
