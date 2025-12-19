@@ -1,0 +1,43 @@
+@startuml component_diagram
+
+!theme vibrant
+
+title Component Diagram - xDuinoRails_MotorControl_bEMF
+
+package "User Application" {
+  [Arduino Sketch] as Sketch
+}
+
+package "Motor Control Library" {
+  [Hardware Abstraction Layer (HAL) API\n<motor_control_hal.h>] as HAL_API
+  [RP2040 HAL Implementation\n<motor_control_hal_rp2040.cpp>] as RP2040_IMPL
+}
+
+package "Pico-SDK (Arduino Core)" {
+    [PWM Hardware Driver] as PWM
+    [ADC Hardware Driver] as ADC
+    [DMA Hardware Driver] as DMA
+}
+
+Sketch -down-> HAL_API : Calls
+HAL_API <|-- RP2040_IMPL : Implements
+RP2040_IMPL -down-> PWM : Controls
+RP2040_IMPL -down-> ADC : Configures & Reads
+RP2040_IMPL -down-> DMA : Manages
+
+note right of Sketch
+  The user's application, which
+  includes one of the examples
+  like SineWaveSpeed or a custom
+  motor control logic.
+end note
+
+note left of RP2040_IMPL
+  This component contains the
+  RP2040-specific logic to
+  interact with the hardware.
+  It manages the MotorContext
+  data structure.
+end note
+
+@enduml
