@@ -16,6 +16,7 @@ package "Motor Control Library" {
 package "Pico-SDK (Arduino Core)" {
     [PWM Hardware Driver] as PWM
     [ADC Hardware Driver] as ADC
+    [ADC Ring Buffer] as ADC_BUFF
     [DMA Hardware Driver] as DMA
 }
 
@@ -24,6 +25,13 @@ HAL_API <|-- RP2040_IMPL : Implements
 RP2040_IMPL -down-> PWM : Controls
 RP2040_IMPL -down-> ADC : Configures & Reads
 RP2040_IMPL -down-> DMA : Manages
+
+DMA <.. PWM : DREQ
+DMA --> ADC : Start
+DMA <.. ADC : DREQ
+DMA --> ADC_BUFF : Copy
+ADC .> ADC_BUFF
+
 
 note right of Sketch
   The user's application, which
