@@ -5,54 +5,19 @@ theme:
   language: en
 nav:
   - 'index.md'
-  - 'User Manual':
-    - 'English': 'USER_MANUAL.en.md'
-    - 'Deutsch': 'USER_MANUAL.de.md'
-  - 'How To Use':
-    - 'English': 'HOW_TO_USE.en.md'
-    - 'Deutsch': 'HOW_TO_USE.de.md'
+  - 'User Manual': 'USER_MANUAL.en.md'
+  - 'How To Use': 'HOW_TO_USE.en.md'
   - 'Supported Hardware':
-    - 'Seeed Studio XIAO RP2040':
-      - 'English': 'SEEED_XIAO_RP2040.en.md'
-      - 'Deutsch': 'SEEED_XIAO_RP2040.de.md'
-    - 'Motor Driver ICs':
-      - 'English': 'MOTOR_DRIVER_ICS.en.md'
-      - 'Deutsch': 'MOTOR_DRIVER_ICS.de.md'
+    - 'Seeed Studio XIAO RP2040': 'SEEED_XIAO_RP2040.en.md'
+    - 'Motor Driver ICs': 'MOTOR_DRIVER_ICS.en.md'
   - 'Specifications':
-    - 'Core Concepts':
-      - 'English': 'specs/CORE_CONCEPTS.en.md'
-      - 'Deutsch': 'specs/CORE_CONCEPTS.de.md'
-    - 'Developer Reference':
-      - 'English': 'specs/DEVELOPER_REFERENCE.en.md'
-      - 'Deutsch': 'specs/DEVELOPER_REFERENCE.de.md'
-    - 'Hardware Control':
-      - 'English': 'specs/HARDWARE_CONTROL.en.md'
-      - 'Deutsch': 'specs/HARDWARE_CONTROL.de.md'
-    - 'BEMF Measurement':
-      - 'English': 'specs/BEMF_MEASUREMENT_TECHNIQUES.en.md'
-      - 'Deutsch': 'specs/BEMF_MEASUREMENT_TECHNIQUES.de.md'
-    - 'PWM Frequencies':
-      - 'English': 'specs/PWM_FREQUENCIES.en.md'
-      - 'Deutsch': 'specs/PWM_FREQUENCIES.de.md'
-    - 'Discrete H-Bridge Plan':
-      - 'English': 'specs/DISCRETE_H_BRIDGE_PLAN.en.md'
-      - 'Deutsch': 'specs/DISCRETE_H_BRIDGE_PLAN.de.md'
-    - 'Technical Debts':
-      - 'English': 'specs/TECHNICAL_DEBTS.en.md'
-      - 'Deutsch': 'specs/TECHNICAL_DEBTS.de.md'
-    - 'Testing Improvements':
-      - 'English': 'specs/TESTING_IMPROVEMENTS.en.md'
-      - 'Deutsch': 'specs/TESTING_IMPROVEMENTS.de.md'
-  - 'Contributing':
-    - 'English': 'specs/CONTRIBUTING.en.md'
-    - 'Deutsch': 'specs/CONTRIBUTING.de.md'
+    - 'Core Concepts': 'specs/CORE_CONCEPTS.en.md'
+    - 'Developer Reference': 'specs/DEVELOPER_REFERENCE.en.md'
+    - 'Hardware Control': 'specs/HARDWARE_CONTROL.en.md'
+    - 'BEMF Measurement': 'specs/BEMF_MEASUREMENT_TECHNIQUES.en.md'
+    - 'PWM Frequencies': 'specs/PWM_FREQUENCIES.en.md'
+    - 'Discrete H-Bridge Plan': 'specs/DISCRETE_H_BRIDGE_PLAN.en.md'
+    - 'Technical Debts': 'specs/TECHNICAL_DEBTS.en.md'
+    - 'Testing Improvements': 'specs/TESTING_IMPROVEMENTS.en.md'
+  - 'Contributing': 'specs/CONTRIBUTING.en.md'
   - 'Roadmap': 'specs/ROADMAP.md'
-
-extra:
-  alternate:
-    - name: English
-      link: /en/
-      lang: en
-    - name: Deutsch
-      link: /de/
-      lang: de
