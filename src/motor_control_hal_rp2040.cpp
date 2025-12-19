@@ -143,18 +143,19 @@ static void dma_irq_handler() {
 }
 
 /**
- * @brief Timer Callback to Trigger ADC.
+ * @brief Triggers a BEMF ADC measurement sequence.
  *
- * This function is called after a specific delay from the start of the PWM cycle.
- * The delay ensures we are in the PWM "OFF" phase where the motor is coasting,
- * allowing for clean Back-EMF measurement.
+ * This function initiates the process of sampling the BEMF pins. It handles
+ * ADC resource locking, overcurrent protection, and DMA re-arming. It can be
+ * called directly from an ISR (for discrete mode) or from a timer callback
+ * (for standard mode).
+ * @param ctx Pointer to the motor context.
  */
-static int64_t delayed_adc_trigger_callback(alarm_id_t id, void *user_data) {
-    MotorContext* ctx = (MotorContext*)user_data;
-    if (!ctx) return 0;
+static void trigger_adc_measurement(MotorContext* ctx) {
+    if (!ctx) return;
 
     // Concurrency Check: The RP2040 has only one ADC. If it's busy, we skip this cycle.
-    if (g_adc_busy) return 0;
+    if (g_adc_busy) return;
 
 #if defined(MOTOR_CURRENT_PIN)
     // --- FAST OVERCURRENT PROTECTION ---
@@ -181,7 +182,7 @@ static int64_t delayed_adc_trigger_callback(alarm_id_t id, void *user_data) {
              pwm_set_gpio_level(ctx->pwm_a_pin, PWM_MAX_TOP);
              pwm_set_gpio_level(ctx->pwm_b_pin, PWM_MAX_TOP);
         }
-        return 0;
+        return;
     }
 #endif
 
@@ -209,7 +210,16 @@ static int64_t delayed_adc_trigger_callback(alarm_id_t id, void *user_data) {
 
     // Start the ADC in free-running mode (driven by internal timer, pushed to FIFO)
     adc_run(true);
+}
 
+/**
+ * @brief Timer Callback to Trigger ADC (Standard Mode).
+ *
+ * This function acts as a wrapper for `trigger_adc_measurement` to be
+ * compatible with the `add_alarm_in_us` API.
+ */
+static int64_t delayed_adc_trigger_callback(alarm_id_t id, void *user_data) {
+    trigger_adc_measurement((MotorContext*)user_data);
     return 0; // Return 0 to stop the alarm from repeating
 }
 
@@ -230,9 +240,14 @@ static void on_pwm_wrap() {
             pwm_clear_irq(ctx->motor_pwm_slice_a);
 
             if (!ctx->skip_measurement) {
-                // Schedule the ADC trigger to happen during the OFF phase.
-                // context is passed as user_data.
-                add_alarm_in_us(ctx->adc_trigger_delay_us, delayed_adc_trigger_callback, ctx, true);
+                // For discrete H-Bridge with inverted logic, the wrap point IS the middle of the OFF phase.
+                // We can trigger the measurement directly without a delay.
+                if (ctx->is_discrete_mode) {
+                    trigger_adc_measurement(ctx);
+                } else {
+                    // For the standard driver, we still need a delay to reach the OFF phase.
+                    add_alarm_in_us(ctx->adc_trigger_delay_us, delayed_adc_trigger_callback, ctx, true);
+                }
             }
         }
     }
@@ -253,21 +268,24 @@ static void common_motor_init(MotorContext* ctx) {
     gpio_set_function( ctx->pwm_b_pin, GPIO_FUNC_PWM );
     
     if (ctx->is_discrete_mode) {
-        // Discrete Mode: Use standard polarity (Active High)
-        // This ensures the hardware Dead-Time generator works correctly (delays rising edge).
-        gpio_set_outover(  ctx->pwm_b_pin, GPIO_OVERRIDE_NORMAL );
-        gpio_set_outover(  ctx->pwm_a_pin, GPIO_OVERRIDE_NORMAL );
+        // Discrete Mode: Use INVERTED polarity.
+        // This clever trick shifts the PWM_IRQ_WRAP interrupt to occur exactly
+        // in the middle of the OFF-phase (null-phase), allowing us to trigger
+        // the ADC for BEMF measurement with perfect hardware timing, eliminating
+        // the need for a software delay timer.
+        gpio_set_outover(  ctx->pwm_b_pin, GPIO_OVERRIDE_INVERT );
+        gpio_set_outover(  ctx->pwm_a_pin, GPIO_OVERRIDE_INVERT );
 
         gpio_set_function( ctx->ls_a_pin, GPIO_FUNC_PWM );
         gpio_set_function( ctx->ls_b_pin, GPIO_FUNC_PWM );
-        gpio_set_outover(  ctx->ls_a_pin, GPIO_OVERRIDE_NORMAL );
-        gpio_set_outover(  ctx->ls_b_pin, GPIO_OVERRIDE_NORMAL );
+        gpio_set_outover(  ctx->ls_a_pin, GPIO_OVERRIDE_INVERT );
+        gpio_set_outover(  ctx->ls_b_pin, GPIO_OVERRIDE_INVERT );
 
-        // Initial OFF state (Level 0 = OFF)
-        pwm_set_gpio_level(ctx->ls_a_pin, 0);
-        pwm_set_gpio_level(ctx->ls_b_pin, 0);
-        pwm_set_gpio_level(ctx->pwm_a_pin, 0);
-        pwm_set_gpio_level(ctx->pwm_b_pin, 0);
+        // Initial OFF state (Level TOP = OFF due to inversion)
+        pwm_set_gpio_level(ctx->ls_a_pin, PWM_MAX_TOP);
+        pwm_set_gpio_level(ctx->ls_b_pin, PWM_MAX_TOP);
+        pwm_set_gpio_level(ctx->pwm_a_pin, PWM_MAX_TOP);
+        pwm_set_gpio_level(ctx->pwm_b_pin, PWM_MAX_TOP);
     } else {
         // Standard Mode: Invert the PWM output.
         // Often required for driver logic or to match historical behavior.
@@ -435,21 +453,25 @@ void hal_motor_set_pwm(int duty_cycle, bool forward, uint8_t motor_id) {
 
     if (ctx->is_discrete_mode) {
         // Discrete H-Bridge Control (Fast Decay / Coasting Mode)
-        // ON Phase: Current flows through HS of one side and LS of the other.
-        // OFF Phase: All Switches OFF (Coasting), allows BEMF measurement.
-        // We use NORMAL polarity (Active High).
-        // Map 0->0, 255->Wrap.
-        uint16_t on_level = map(duty_cycle, PWM_DUTY_MIN, PWM_DUTY_MAX, 0, ctx->pwm_wrap_value);
-        uint16_t off_level = 0; // Safe OFF
+        // We use INVERTED polarity. The wrap interrupt now happens in the middle of the OFF phase.
+        // A lower threshold means a longer ON time.
+        // Map 0->Wrap (OFF), 255->0 (ON)
+        uint16_t on_level = map(duty_cycle, PWM_DUTY_MIN, PWM_DUTY_MAX, ctx->pwm_wrap_value, 0);
+        uint16_t off_level = ctx->pwm_wrap_value; // Safe OFF
 
-        // Subtract dead-time from the on_level to prevent shoot-through
+        // Add dead-time to the on_level threshold.
+        // A higher threshold shortens the ON pulse, creating dead time.
         uint16_t on_level_dead_time;
-        if (on_level > PWM_DEAD_TIME_CYCLES) {
-            on_level_dead_time = on_level - PWM_DEAD_TIME_CYCLES;
+        if ((uint32_t)on_level + PWM_DEAD_TIME_CYCLES < ctx->pwm_wrap_value) {
+            on_level_dead_time = on_level + PWM_DEAD_TIME_CYCLES;
         } else {
-            on_level_dead_time = 0;
+            on_level_dead_time = ctx->pwm_wrap_value;
         }
 
+        // During the OFF phase, all FETs must be off to allow the motor to coast
+        // and generate a measurable BEMF. We achieve this by driving the active
+        // Low-Side FET with the same PWM signal as the High-Side (without dead-time),
+        // ensuring they switch off together into a high-impedance state.
         if (forward) {
              // Forward: Left HS (A) + Right LS (B)
              pwm_set_gpio_level(ctx->pwm_a_pin, on_level_dead_time);  // HS_A = PWM
