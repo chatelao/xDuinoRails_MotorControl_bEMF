@@ -1,0 +1,64 @@
+@startuml class_diagram
+
+!theme vibrant
+
+title Structural Diagram - Motor Control HAL
+
+note as N1
+  This is not a traditional class diagram as the HAL is written in C-style, not C++.
+  The diagram shows the central MotorContext data structure and the functions that operate on it.
+end note
+
+package "Data Structure" {
+  class MotorContext <<struct>> {
+    + is_initialized: bool
+    + is_discrete_mode: bool
+    -- Pins --
+    + pwm_a_pin: uint8_t
+    + pwm_b_pin: uint8_t
+    + ls_a_pin: uint8_t
+    + ls_b_pin: uint8_t
+    + bemf_a_pin: uint8_t
+    + bemf_b_pin: uint8_t
+    -- PWM --
+    + motor_pwm_slice_a: uint
+    + motor_pwm_slice_b: uint
+    + pwm_wrap_value: uint16_t
+    + pwm_frequency: uint32_t
+    -- DMA & ADC --
+    + dma_channel: int
+    + bemf_ring_buffer: volatile uint16_t[]
+    + bemf_callback: hal_bemf_update_callback_t
+    + adc_trigger_delay_us: volatile uint32_t
+    + skip_measurement: volatile bool
+  }
+}
+
+package "Functions" {
+  component "Public API\n(motor_control_hal.h)" as PublicAPI {
+    + hal_motor_init()
+    + hal_motor_init_discrete()
+    + hal_motor_set_pwm()
+    + hal_motor_get_bemf_buffer()
+    + hal_motor_get_current_buffer()
+    + hal_motor_check_solenoid_position()
+  }
+
+  component "Internal Implementation\n(motor_control_hal_rp2040.cpp)" as InternalImpl {
+    - dma_irq_handler()
+    - on_pwm_wrap()
+    - delayed_adc_trigger_callback()
+    - trigger_adc_measurement()
+    - common_motor_init()
+  }
+}
+
+PublicAPI -right-> MotorContext : (modifies)
+InternalImpl -right-> MotorContext : (modifies)
+
+note on link
+  Operates on an instance of
+  g_motors[motor_id]
+end note
+
+@enduml
