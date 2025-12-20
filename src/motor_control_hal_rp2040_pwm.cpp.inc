@@ -7,6 +7,7 @@ static void on_pwm_wrap() {
         MotorContext* ctx = &g_motors[id];
         if (!ctx->is_initialized) continue;
 
+        // Check if the interrupt was triggered by this motor's PWM slice.
         if (pwm_get_irq_status_mask() & (1u << ctx->motor_pwm_slice_a)) {
             pwm_clear_irq(ctx->motor_pwm_slice_a);
 
