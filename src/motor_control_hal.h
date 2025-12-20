@@ -11,6 +11,16 @@
 
 #include <cstdint>
 
+// --- Debugging Flags ---
+// #define DEBUG_PWM
+
+#ifdef DEBUG_PWM
+// Use a dedicated pin (e.g., GPIO25 on XIAO RP2040's blue LED)
+// to output a short pulse at the start of each PWM cycle.
+#define DEBUG_PWM_PIN 25
+#endif
+
+
 // Maximum number of motors supported by the library
 #ifndef MAX_MOTORS
 #define MAX_MOTORS 2
