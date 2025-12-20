@@ -139,13 +139,20 @@ static volatile bool g_adc_busy = false;
  * helper functions, allowing us to organize the code logically.
  */
 
+// --- Interrupt Service Routines (ISRs) & Callbacks ---
 static void dma_irq_handler();
-static int64_t delayed_adc_trigger_callback(alarm_id_t id, void *user_data);
 static void on_pwm_wrap();
+static int64_t delayed_adc_trigger_callback(alarm_id_t id, void *user_data);
+
+// --- PWM Helper Functions ---
 static void pwm_init_common(MotorContext* ctx);
 
+// --- ADC Helper Functions ---
+static void trigger_adc_measurement(MotorContext* ctx, MeasurementType type);
+
+
 // =============================================================================
-// Internal Helper Functions & Interrupt Service Routines (ISRs)
+// Interrupt Service Routines (ISRs) & Callbacks
 // =============================================================================
 /**
  * @brief The "autopilot" functions that run automatically in response to hardware events.
@@ -233,81 +240,6 @@ static void dma_irq_handler() {
 }
 
 /**
- * @brief Kicks off an ADC measurement sequence for BEMF or shunt current.
- *
- * @details This function is the gatekeeper for the ADC. It ensures that only one
- * measurement is happening at a time (`g_adc_busy`), configures the ADC to
- * listen to the correct pair of pins, and then arms the DMA to automatically
- * capture the results.
- *
- * @param ctx Pointer to the motor's context.
- * @param type The type of measurement to perform (BEMF or SHUNT).
- */
-static void trigger_adc_measurement(MotorContext* ctx, MeasurementType type) {
-    if (!ctx) return;
-
-    // The RP2040 has only one ADC peripheral. If it's currently busy with a
-    // measurement for another motor, we must skip this cycle to avoid a collision.
-    // The `g_adc_busy` flag is volatile and provides a basic mutex.
-    if (g_adc_busy) return;
-
-    // "Lock" the ADC to prevent other processes from using it.
-    g_adc_busy = true;
-
-    if (type == BEMF) {
-        // --- Configure ADC for BEMF Measurement ---
-        // Convert GPIO numbers to ADC channel numbers.
-        uint8_t adc_ch_a = ctx->bemf_a_pin - MOTOR_ADC_BASE_PIN;
-        uint8_t adc_ch_b = ctx->bemf_b_pin - MOTOR_ADC_BASE_PIN;
-        // Select the starting channel. The round-robin will proceed from here.
-        adc_select_input(adc_ch_b);
-        // Set a bitmask for the channels to be included in the round-robin sequence.
-        adc_set_round_robin((1u << adc_ch_a) | (1u << adc_ch_b));
-        // The ADC has a 4-level deep hardware FIFO. Draining it ensures no
-        // stale data from previous measurements is present.
-        adc_fifo_drain();
-
-        // --- Re-arm the DMA channel ---
-        // This must be done before every new sequence.
-        // `dma_channel_set_trans_count`: How many transfers to perform.
-        // `dma_channel_set_write_addr`: Reset the write pointer to the beginning of our buffer.
-        // The `true` argument triggers the DMA channel to start immediately once configured.
-        dma_channel_set_trans_count(ctx->dma_channel_bemf, BEMF_RING_BUFFER_SIZE, false);
-        dma_channel_set_write_addr(ctx->dma_channel_bemf, ctx->bemf_ring_buffer, true);
-
-    } else if (type == SHUNT) {
-        // --- Configure ADC for Shunt Measurement ---
-        // Logic is identical to BEMF, just using the shunt-related context variables.
-        uint8_t adc_ch_a = ctx->shunt_a_pin - MOTOR_ADC_BASE_PIN;
-        uint8_t adc_ch_b = ctx->shunt_b_pin - MOTOR_ADC_BASE_PIN;
-        adc_select_input(adc_ch_b);
-        adc_set_round_robin((1u << adc_ch_a) | (1u << adc_ch_b));
-        adc_fifo_drain();
-
-        // --- Re-arm the DMA channel for the shunt buffer ---
-        dma_channel_set_trans_count(ctx->dma_channel_shunt, SHUNT_RING_BUFFER_SIZE, false);
-        dma_channel_set_write_addr(ctx->dma_channel_shunt, ctx->shunt_ring_buffer, true);
-    }
-
-    // Start the ADC in free-running mode. The ADC will now digitize samples
-    // as fast as it can, paced by its clock. The DMA's DREQ mechanism will
-    // automatically transfer samples from the ADC FIFO to our buffer in memory.
-    adc_run(true);
-}
-
-/**
- * @brief A lightweight wrapper to trigger an ADC measurement from a timer.
- * @details This function is needed because the RP2040's timer ("alarm") API
- * requires a specific function signature. This simply unpacks the user data
- * and calls the main `trigger_adc_measurement` function.
- */
-static int64_t delayed_adc_trigger_callback(alarm_id_t id, void *user_data) {
-    AlarmUserData* data = (AlarmUserData*)user_data;
-    trigger_adc_measurement(data->ctx, data->type);
-    return 0; // A non-zero return value would make the alarm repeat.
-}
-
-/**
  * @brief PWM Wrap Interrupt Handler: The "Conductor".
  * @details This function is the master timer for the entire measurement system.
  * It is automatically triggered by the PWM hardware at the precise start of
@@ -365,6 +297,30 @@ static void on_pwm_wrap() {
         }
     }
 }
+
+/**
+ * @brief A lightweight wrapper to trigger an ADC measurement from a timer.
+ * @details This function is needed because the RP2040's timer ("alarm") API
+ * requires a specific function signature. This simply unpacks the user data
+ * and calls the main `trigger_adc_measurement` function.
+ */
+static int64_t delayed_adc_trigger_callback(alarm_id_t id, void *user_data) {
+    AlarmUserData* data = (AlarmUserData*)user_data;
+    trigger_adc_measurement(data->ctx, data->type);
+    return 0; // A non-zero return value would make the alarm repeat.
+}
+
+
+// =============================================================================
+// PWM Control Functions
+// =============================================================================
+/**
+ * @brief The public-facing functions that the main application will call.
+ * @note For Product Managers: This is the official API (Application Programming
+ * Interface). These are the simple, high-level commands our users (other
+ * developers) will use to control the motors, without needing to know about
+ * the complex hardware interactions happening under the hood.
+ */
 
 /**
  * @brief Common logic for initializing the PWM hardware.
@@ -449,17 +405,6 @@ static void pwm_init_common(MotorContext* ctx) {
     ctx->is_initialized = true;
 }
 
-// =============================================================================
-// Public HAL Function Implementations
-// =============================================================================
-/**
- * @brief The public-facing functions that the main application will call.
- * @note For Product Managers: This is the official API (Application Programming
- * Interface). These are the simple, high-level commands our users (other
- * developers) will use to control the motors, without needing to know about
- * the complex hardware interactions happening under the hood.
- */
-
 void hal_motor_init_pwm(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint32_t pwm_frequency, uint8_t motor_id) {
     if (motor_id >= MAX_MOTORS) return;
     MotorContext* ctx = &g_motors[motor_id];
@@ -472,6 +417,101 @@ void hal_motor_init_pwm(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint32_t pwm_frequ
     ctx->dma_channel_shunt = -1;
 
     pwm_init_common(ctx); // Call the shared helper to configure the hardware.
+}
+
+void hal_motor_set_pwm(int duty_cycle, bool forward, uint8_t motor_id) {
+    if (motor_id >= MAX_MOTORS) return;
+    MotorContext* ctx = &g_motors[motor_id];
+    if (!ctx->is_initialized) return;
+
+    // --- Standard Integrated Driver (2-Pin) ---
+    // This is much simpler. Map the 0-255 duty to the counter levels.
+    uint16_t on_level = map(duty_cycle, PWM_DUTY_MIN, PWM_DUTY_MAX, ctx->pwm_wrap_value, 0);
+    uint16_t off_level = PWM_MAX_TOP; // A value that ensures the channel is always off.
+
+    // Determine the correct PWM levels for each pin based on direction.
+    uint16_t level_a = forward ? on_level : off_level;
+    uint16_t level_b = forward ? off_level : on_level;
+
+    // For efficiency, if both motor pins are on the same PWM slice, we can update
+    // their levels simultaneously. This prevents a potential race condition where
+    // one pin is high and the other is low for a very brief period.
+    if (ctx->motor_pwm_slice_a == ctx->motor_pwm_slice_b) {
+        // pwm_set_both_levels expects the levels for channel A and B respectively.
+        pwm_set_both_levels(ctx->motor_pwm_slice_a, level_a, level_b);
+    } else {
+        // Fallback for pins on different slices.
+        pwm_set_gpio_level(ctx->pwm_a_pin, level_a);
+        pwm_set_gpio_level(ctx->pwm_b_pin, level_b);
+    }
+}
+
+
+// =============================================================================
+// ADC & DMA Functions for BEMF and Shunt Measurement
+// =============================================================================
+
+/**
+ * @brief Kicks off an ADC measurement sequence for BEMF or shunt current.
+ *
+ * @details This function is the gatekeeper for the ADC. It ensures that only one
+ * measurement is happening at a time (`g_adc_busy`), configures the ADC to
+ * listen to the correct pair of pins, and then arms the DMA to automatically
+ * capture the results.
+ *
+ * @param ctx Pointer to the motor's context.
+ * @param type The type of measurement to perform (BEMF or SHUNT).
+ */
+static void trigger_adc_measurement(MotorContext* ctx, MeasurementType type) {
+    if (!ctx) return;
+
+    // The RP2040 has only one ADC peripheral. If it's currently busy with a
+    // measurement for another motor, we must skip this cycle to avoid a collision.
+    // The `g_adc_busy` flag is volatile and provides a basic mutex.
+    if (g_adc_busy) return;
+
+    // "Lock" the ADC to prevent other processes from using it.
+    g_adc_busy = true;
+
+    if (type == BEMF) {
+        // --- Configure ADC for BEMF Measurement ---
+        // Convert GPIO numbers to ADC channel numbers.
+        uint8_t adc_ch_a = ctx->bemf_a_pin - MOTOR_ADC_BASE_PIN;
+        uint8_t adc_ch_b = ctx->bemf_b_pin - MOTOR_ADC_BASE_PIN;
+        // Select the starting channel. The round-robin will proceed from here.
+        adc_select_input(adc_ch_b);
+        // Set a bitmask for the channels to be included in the round-robin sequence.
+        adc_set_round_robin((1u << adc_ch_a) | (1u << adc_ch_b));
+        // The ADC has a 4-level deep hardware FIFO. Draining it ensures no
+        // stale data from previous measurements is present.
+        adc_fifo_drain();
+
+        // --- Re-arm the DMA channel ---
+        // This must be done before every new sequence.
+        // `dma_channel_set_trans_count`: How many transfers to perform.
+        // `dma_channel_set_write_addr`: Reset the write pointer to the beginning of our buffer.
+        // The `true` argument triggers the DMA channel to start immediately once configured.
+        dma_channel_set_trans_count(ctx->dma_channel_bemf, BEMF_RING_BUFFER_SIZE, false);
+        dma_channel_set_write_addr(ctx->dma_channel_bemf, ctx->bemf_ring_buffer, true);
+
+    } else if (type == SHUNT) {
+        // --- Configure ADC for Shunt Measurement ---
+        // Logic is identical to BEMF, just using the shunt-related context variables.
+        uint8_t adc_ch_a = ctx->shunt_a_pin - MOTOR_ADC_BASE_PIN;
+        uint8_t adc_ch_b = ctx->shunt_b_pin - MOTOR_ADC_BASE_PIN;
+        adc_select_input(adc_ch_b);
+        adc_set_round_robin((1u << adc_ch_a) | (1u << adc_ch_b));
+        adc_fifo_drain();
+
+        // --- Re-arm the DMA channel for the shunt buffer ---
+        dma_channel_set_trans_count(ctx->dma_channel_shunt, SHUNT_RING_BUFFER_SIZE, false);
+        dma_channel_set_write_addr(ctx->dma_channel_shunt, ctx->shunt_ring_buffer, true);
+    }
+
+    // Start the ADC in free-running mode. The ADC will now digitize samples
+    // as fast as it can, paced by its clock. The DMA's DREQ mechanism will
+    // automatically transfer samples from the ADC FIFO to our buffer in memory.
+    adc_run(true);
 }
 
 void hal_motor_init_bemf_adc_dma(uint8_t bemf_a_pin, uint8_t bemf_b_pin, hal_bemf_update_callback_t callback, uint8_t motor_id) {
@@ -593,32 +633,15 @@ void hal_motor_init_shunt_adc_dma(uint8_t shunt_a_pin, uint8_t shunt_b_pin, hal_
     }
 }
 
-void hal_motor_set_pwm(int duty_cycle, bool forward, uint8_t motor_id) {
-    if (motor_id >= MAX_MOTORS) return;
-    MotorContext* ctx = &g_motors[motor_id];
-    if (!ctx->is_initialized) return;
-
-    // --- Standard Integrated Driver (2-Pin) ---
-    // This is much simpler. Map the 0-255 duty to the counter levels.
-    uint16_t on_level = map(duty_cycle, PWM_DUTY_MIN, PWM_DUTY_MAX, ctx->pwm_wrap_value, 0);
-    uint16_t off_level = PWM_MAX_TOP; // A value that ensures the channel is always off.
-
-    // Determine the correct PWM levels for each pin based on direction.
-    uint16_t level_a = forward ? on_level : off_level;
-    uint16_t level_b = forward ? off_level : on_level;
-
-    // For efficiency, if both motor pins are on the same PWM slice, we can update
-    // their levels simultaneously. This prevents a potential race condition where
-    // one pin is high and the other is low for a very brief period.
-    if (ctx->motor_pwm_slice_a == ctx->motor_pwm_slice_b) {
-        // pwm_set_both_levels expects the levels for channel A and B respectively.
-        pwm_set_both_levels(ctx->motor_pwm_slice_a, level_a, level_b);
-    } else {
-        // Fallback for pins on different slices.
-        pwm_set_gpio_level(ctx->pwm_a_pin, level_a);
-        pwm_set_gpio_level(ctx->pwm_b_pin, level_b);
-    }
-}
+// =============================================================================
+// Data & Buffer Access Functions
+// =============================================================================
+/**
+ * @brief Functions for retrieving data from the HAL.
+ * @note For Product Managers: These functions provide a "window" into the
+ * controller, allowing other parts of the software to get the latest sensor
+ * readings (like BEMF or current) for analysis, logging, or display.
+ */
 
 int hal_motor_get_bemf_buffer(volatile uint16_t** buffer, int* last_write_pos, uint8_t motor_id) {
     if (motor_id >= MAX_MOTORS) return 0;
