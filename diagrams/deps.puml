@@ -1,0 +1,72 @@
+@startuml deps
+!theme vibrant
+
+title Source Code Dependency Graph
+
+skinparam componentStyle uml2
+skinparam rectangle {
+    BackgroundColor<<implementation>> LightGreen
+    BackgroundColor<<public_api>> LightSkyBlue
+    BackgroundColor<<diagnostics>> LightGoldenRodYellow
+    BackgroundColor<<placeholder>> LightGray
+    BackgroundColor<<external>> Wheat
+}
+
+package "Arduino Framework" <<external>> {
+    [Arduino.h]
+}
+
+package "Pico SDK" <<external>> {
+    [hardware/pwm.h]
+    [hardware/dma.h]
+    [hardware/adc.h]
+    [hardware/irq.h]
+}
+
+package "HAL Public API" <<public_api>> {
+    [motor_control_hal.h]
+}
+
+package "Diagnostics" <<diagnostics>> {
+    [motor_control_diagnostics.cpp]
+}
+
+package "RP2040 Implementation" <<implementation>> {
+    [motor_control_hal_rp2040.cpp]
+    [motor_control_hal_rp2040_internal.h]
+    [motor_control_hal_rp2040_motor.cpp.inc]
+    [motor_control_hal_rp2040_pwm.cpp.inc]
+    [motor_control_hal_rp2040_adc.cpp.inc]
+}
+
+package "Placeholder" <<placeholder>> {
+    [main.cpp]
+}
+
+
+' Relationships
+[main.cpp] --> [Arduino.h]
+
+[motor_control_diagnostics.cpp] --> [motor_control_hal.h] : "#include"
+
+[motor_control_hal.h] ..> [Arduino.h] : "#include <cstdint>"
+
+[motor_control_hal_rp2040.cpp] --> [motor_control_hal.h] : "#include"
+[motor_control_hal_rp2040.cpp] --> [motor_control_hal_rp2040_internal.h] : "#include"
+[motor_control_hal_rp2040.cpp] ..> [motor_control_hal_rp2040_motor.cpp.inc] : "#include"
+[motor_control_hal_rp2040.cpp] ..> [motor_control_hal_rp2040_pwm.cpp.inc] : "#include"
+[motor_control_hal_rp2040.cpp] ..> [motor_control_hal_rp2040_adc.cpp.inc] : "#include"
+
+
+[motor_control_hal_rp2040_internal.h] --> [motor_control_hal.h] : "#include"
+[motor_control_hal_rp2040_internal.h] --> [Arduino.h] : "#include"
+[motor_control_hal_rp2040_internal.h] --> [hardware/pwm.h] : "#include"
+[motor_control_hal_rp2040_internal.h] --> [hardware/dma.h] : "#include"
+[motor_control_hal_rp2040_internal.h] --> [hardware/adc.h] : "#include"
+[motor_control_hal_rp2040_internal.h] --> [hardware/irq.h] : "#include"
+
+[motor_control_hal_rp2040_motor.cpp.inc] --> [motor_control_hal_rp2040_internal.h] : "#include"
+[motor_control_hal_rp2040_pwm.cpp.inc] --> [motor_control_hal_rp2040_internal.h] : "#include"
+[motor_control_hal_rp2040_adc.cpp.inc] --> [motor_control_hal_rp2040_internal.h] : "#include"
+
+@enduml
