@@ -135,12 +135,7 @@ void hal_motor_set_pwm(int duty_cycle, bool forward, uint8_t motor_id) {
     uint16_t level_a = forward ? on_level : off_level;
     uint16_t level_b = forward ? off_level : on_level;
 
-    if (ctx->motor_pwm_slice_a == ctx->motor_pwm_slice_b) {
-        pwm_set_both_levels(ctx->motor_pwm_slice_a, level_a, level_b);
-    } else {
-        pwm_set_gpio_level(ctx->pwm_a_pin, level_a);
-        pwm_set_gpio_level(ctx->pwm_b_pin, level_b);
-    }
+    pwm_set_motor_levels(ctx, level_a, level_b);
 }
 
 int hal_motor_get_bemf_buffer(volatile uint16_t** buffer, int* last_write_pos, uint8_t motor_id) {
