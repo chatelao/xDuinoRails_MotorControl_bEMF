@@ -75,18 +75,6 @@ typedef void (*hal_shunt_update_callback_t)(int raw_shunt_value);
 void hal_motor_init_pwm(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint32_t pwm_frequency = 20000, uint8_t motor_id = 0);
 
 /**
- * @brief Initializes the PWM hardware for a discrete 4-pin H-Bridge.
- *
- * @param hs_a_pin High-Side pin for Half-Bridge A.
- * @param ls_a_pin Low-Side pin for Half-Bridge A.
- * @param hs_b_pin High-Side pin for Half-Bridge B.
- * @param ls_b_pin Low-Side pin for Half-Bridge B.
- * @param pwm_frequency The desired PWM frequency in Hz.
- * @param motor_id The index of the motor to control.
- */
-void hal_motor_init_pwm_discrete(uint8_t hs_a_pin, uint8_t ls_a_pin, uint8_t hs_b_pin, uint8_t ls_b_pin, uint32_t pwm_frequency = 20000, uint8_t motor_id = 0);
-
-/**
  * @brief Initializes the BEMF sensing hardware using DMA.
  *
  * @param bemf_a_pin The ADC pin for motor terminal A.
