@@ -9,9 +9,19 @@ concise "ADC" as ADC
 concise "DMA" as DMA
 concise "DMA IRQ" as DMA_IRQ
 robust "PWM Counter" as PWM_CNT
+robust "PWM Compare A" as PWM_COMPA
 binary "Internal PWM (A)" as PWM_INT
 binary "External PWM (A)" as PWM_EXT
+robust "ADC CTRL Reg" as ADC_CTRL
+robust "ADC FIFO" as ADC_FIFO
 
+@0
+PWM_CNT is "0"
+PWM_COMPA is "300"
+ADC_CTRL is "Disabled"
+ADC_FIFO is "Empty"
+
+/' --- Cycle 1 --- '/
 @60
 PWM_CNT is "0"
 PWM_IRQ is "Active"
@@ -23,16 +33,16 @@ CPU is "Idle"
 @65
 ALARM is "Active"
 CPU is "Active"
-
 @66
 ALARM is "Idle"
 ADC is "Active"
 CPU is "Active"
-
+ADC_CTRL is "EN,START_ONCE"
 @67
 CPU is "Idle"
 DMA is "Transferring"
 ADC -> DMA : DREQ
+ADC_FIFO is "Filling"
 @68
 ADC -> DMA : DREQ
 @69
@@ -44,44 +54,153 @@ ADC -> DMA : DREQ
 DMA is "Idle"
 ADC is "Idle"
 DMA_IRQ is "Active"
-
+ADC_CTRL is "Disabled"
+ADC_FIFO is "Full"
 @76
 CPU is "Active"
-
 @78
 DMA_IRQ is "Idle"
 CPU is "Idle"
-
-
-/' --- Corrected PWM Waveforms for one 50µs Phase-Correct Cycle (70% Duty) ---
-   1. PWM Counter (`PWM_CNT`) forms a triangle wave (0 -> TOP -> 0).
-   2. `hal_motor_set_pwm` maps 70% duty to a LOW compare level (`on_level` approx. 30% of TOP).
-   3. Internal PWM is HIGH when Counter < `on_level` (at start and end of cycle).
-   4. External PWM is INVERSE of internal, creating a single, centered HIGH pulse.
-   5. Active time: @67.5 to @102.5 = 35µs. Total cycle: 50µs. (35/50 = 70%).
-'/
+ADC_FIFO is "Empty"
 
 @60
 PWM_CNT is "0"
 PWM_INT is 1
 PWM_EXT is 0
-
-@67.5 /' 15% into cycle (7.5µs), counter rises above compare level. '/
-PWM_CNT is "500"
+@67.5
+PWM_CNT is "300"
 PWM_INT is 0
 PWM_EXT is 1
-
-@85 /' 50% into cycle (25µs), counter reaches the peak (TOP). '/
+@85
 PWM_CNT is "1000"
-
-@102.5 /' 85% into cycle (42.5µs), counter falls below compare level. '/
-PWM_CNT is "500"
+@102.5
+PWM_CNT is "300"
 PWM_INT is 1
 PWM_EXT is 0
-
-@110 /' 100% into cycle (50µs), counter is back at 0. '/
+@110
 PWM_CNT is "0"
 PWM_INT is 1
 PWM_EXT is 0
+
+/' --- Cycle 2 --- '/
+@110
+PWM_IRQ is "Active"
+CPU is "Active"
+@112
+PWM_IRQ is "Idle"
+CPU is "Idle"
+
+@115
+ALARM is "Active"
+CPU is "Active"
+@116
+ALARM is "Idle"
+ADC is "Active"
+CPU is "Active"
+ADC_CTRL is "EN,START_ONCE"
+@117
+CPU is "Idle"
+DMA is "Transferring"
+ADC -> DMA : DREQ
+ADC_FIFO is "Filling"
+@118
+ADC -> DMA : DREQ
+@119
+ADC -> DMA : DREQ
+@120
+ADC -> DMA : DREQ
+
+@125
+DMA is "Idle"
+ADC is "Idle"
+DMA_IRQ is "Active"
+ADC_CTRL is "Disabled"
+ADC_FIFO is "Full"
+@126
+CPU is "Active"
+@128
+DMA_IRQ is "Idle"
+CPU is "Idle"
+ADC_FIFO is "Empty"
+
+@110
+PWM_CNT is "0"
+PWM_INT is 1
+PWM_EXT is 0
+@117.5
+PWM_CNT is "300"
+PWM_INT is 0
+PWM_EXT is 1
+@135
+PWM_CNT is "1000"
+@152.5
+PWM_CNT is "300"
+PWM_INT is 1
+PWM_EXT is 0
+@160
+PWM_CNT is "0"
+PWM_INT is 1
+PWM_EXT is 0
+
+/' --- Cycle 3 --- '/
+@160
+PWM_IRQ is "Active"
+CPU is "Active"
+@162
+PWM_IRQ is "Idle"
+CPU is "Idle"
+
+@165
+ALARM is "Active"
+CPU is "Active"
+@166
+ALARM is "Idle"
+ADC is "Active"
+CPU is "Active"
+ADC_CTRL is "EN,START_ONCE"
+@167
+CPU is "Idle"
+DMA is "Transferring"
+ADC -> DMA : DREQ
+ADC_FIFO is "Filling"
+@168
+ADC -> DMA : DREQ
+@169
+ADC -> DMA : DREQ
+@170
+ADC -> DMA : DREQ
+
+@175
+DMA is "Idle"
+ADC is "Idle"
+DMA_IRQ is "Active"
+ADC_CTRL is "Disabled"
+ADC_FIFO is "Full"
+@176
+CPU is "Active"
+@178
+DMA_IRQ is "Idle"
+CPU is "Idle"
+ADC_FIFO is "Empty"
+
+@160
+PWM_CNT is "0"
+PWM_INT is 1
+PWM_EXT is 0
+@167.5
+PWM_CNT is "300"
+PWM_INT is 0
+PWM_EXT is 1
+@185
+PWM_CNT is "1000"
+@202.5
+PWM_CNT is "300"
+PWM_INT is 1
+PWM_EXT is 0
+@210
+PWM_CNT is "0"
+PWM_INT is 1
+PWM_EXT is 0
+
 
 @enduml
