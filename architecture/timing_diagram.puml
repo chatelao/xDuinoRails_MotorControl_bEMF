@@ -1,0 +1,175 @@
+@startuml
+!theme vibrant
+scale 2
+
+concise "CPU" as CPU
+concise "PWM Wrap IRQ" as PWM_IRQ
+concise "Timer Alarm" as ALARM
+concise "ADC" as ADC
+concise "DMA" as DMA
+concise "DMA IRQ" as DMA_IRQ
+robust "PWM Counter" as PWM_CNT
+digital "Internal PWM (A)" as PWM_INT
+digital "External PWM (A)" as PWM_EXT
+
+
+@0
+CPU is "Active"
+note right of CPU
+  <font size=12><b>Initialization Phase</b></font>
+  1. `hal_motor_init_pwm()` is called.
+     - GPIOs are configured.
+     - PWM clock divider and wrap value calculated.
+     - PWM slices are configured and enabled.
+  2. `hal_motor_init_bemf_adc_dma()` is called.
+     - ADC & GPIOs are initialized.
+     - DMA channel is claimed and configured.
+     - DMA & PWM IRQ handlers are installed.
+end note
+PWM_CNT is "0"
+PWM_INT is 0
+PWM_EXT is 1
+
+@20
+CPU is "Idle"
+note right of CPU
+  System is idle, waiting for commands.
+end note
+
+@40
+CPU is "Active"
+note right of CPU
+  `hal_motor_set_pwm(179)` is called
+  (duty_cycle = 70%)
+  `on_level` is calculated for 70% duty.
+  PWM channel A level is set.
+end note
+
+@50
+CPU is "Idle"
+
+== Operational Phase: 1x 20kHz Cycle (50µs), 70% Duty Cycle ==
+
+@60
+PWM_CNT is "0"
+PWM_IRQ is "Active"
+CPU is "Active"
+note right of PWM_IRQ
+  PWM counter reaches 0,
+  triggers Wrap Interrupt.
+end note
+note right of CPU
+  `on_pwm_wrap()` ISR begins.
+  - IRQ is cleared.
+  - Schedules BEMF ADC trigger
+    via hardware timer.
+end note
+
+@62
+PWM_IRQ is "Idle"
+CPU is "Idle"
+
+@65
+ALARM is "Active"
+note right of ALARM
+  Timer fires after `adc_trigger_delay_us`
+  (e.g., ~5µs into the OFF phase).
+  The BEMF measurement must happen
+  during the PWM OFF period.
+end note
+CPU is "Active"
+note right of CPU
+  `delayed_adc_trigger_callback()`
+  - Calls `trigger_adc_measurement()`
+end note
+
+@66
+ALARM is "Idle"
+ADC is "Active"
+note right of ADC
+  ADC is enabled and starts
+  free-running sampling.
+end note
+CPU is "Active"
+note right of CPU
+  `trigger_adc_measurement()`
+  - Sets up ADC round-robin.
+  - Drains ADC FIFO.
+  - Re-arms DMA channel.
+  - Starts ADC (`adc_run(true)`).
+end note
+
+@67
+CPU is "Idle"
+DMA is "Transferring"
+note right of DMA #lightblue
+  For every sample in the ADC FIFO,
+  the ADC peripheral asserts the DREQ signal.
+  The DMA controller responds instantly,
+  transferring one `uint16_t` sample from
+  ADC FIFO to the Ring Buffer in RAM.
+  This happens `BEMF_RING_BUFFER_SIZE` times.
+end note
+ADC -> DMA : DREQ
+@68
+ADC -> DMA : DREQ
+@69
+ADC -> DMA : DREQ
+@70
+ADC -> DMA : DREQ
+
+@75
+DMA is "Idle"
+ADC is "Idle"
+DMA_IRQ is "Active"
+note right of DMA_IRQ
+  DMA completes its transfer count,
+  triggers DMA Interrupt.
+end note
+
+@76
+CPU is "Active"
+note right of CPU
+  `dma_irq_handler()` ISR begins.
+  - Stops ADC (`adc_run(false)`).
+  - Clears DMA IRQ flag.
+  - Processes BEMF buffer.
+  - Calls user callback.
+end note
+
+@78
+DMA_IRQ is "Idle"
+CPU is "Idle"
+
+
+' --- Corrected PWM Waveforms for one 50µs Phase-Correct Cycle (70% Duty) ---
+' 1. PWM Counter (`PWM_CNT`) forms a triangle wave (0 -> TOP -> 0).
+' 2. `hal_motor_set_pwm` maps 70% duty to a LOW compare level (`on_level` approx. 30% of TOP).
+' 3. Internal PWM is HIGH when Counter < `on_level` (at start and end of cycle).
+' 4. External PWM is INVERSE of internal, creating a single, centered HIGH pulse.
+' 5. Active time: @67.5 to @102.5 = 35µs. Total cycle: 50µs. (35/50 = 70%).
+
+@60
+PWM_CNT is "0"
+PWM_INT is 1
+PWM_EXT is 0
+
+@67.5 ' 15% into cycle (7.5µs), counter rises above compare level.
+PWM_CNT is "500"
+PWM_INT is 0
+PWM_EXT is 1
+
+@85 ' 50% into cycle (25µs), counter reaches the peak (TOP).
+PWM_CNT is "1000"
+
+@102.5 ' 85% into cycle (42.5µs), counter falls below compare level.
+PWM_CNT is "500"
+PWM_INT is 1
+PWM_EXT is 0
+
+@110 ' 100% into cycle (50µs), counter is back at 0.
+PWM_CNT is "0"
+PWM_INT is 1
+PWM_EXT is 0
+
+@enduml
