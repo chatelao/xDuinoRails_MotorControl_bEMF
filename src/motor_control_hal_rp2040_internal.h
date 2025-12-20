@@ -70,10 +70,9 @@ extern volatile bool g_adc_busy;
 // =============================================================================
 // Forward Declarations
 // =============================================================================
-static void trigger_adc_measurement(MotorContext* ctx, MeasurementType type);
 static void dma_irq_handler();
 static int64_t delayed_adc_trigger_callback(alarm_id_t id, void *user_data);
-static void on_pwm_wrap();
+static void trigger_adc_measurement(MotorContext* ctx, MeasurementType type);
 static void pwm_init_common(MotorContext* ctx);
 
 #endif // ARDUINO_ARCH_RP2040

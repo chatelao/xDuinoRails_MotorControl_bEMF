@@ -9,6 +9,45 @@ MotorContext g_motors[MAX_MOTORS];
 volatile bool g_adc_busy = false;
 
 // =============================================================================
+// Interrupts & Callbacks
+// =============================================================================
+
+static void on_pwm_wrap() {
+    for (int id = 0; id < MAX_MOTORS; id++) {
+        MotorContext* ctx = &g_motors[id];
+        if (!ctx->is_initialized) continue;
+
+        if (pwm_get_irq_status_mask() & (1u << ctx->motor_pwm_slice_a)) {
+            pwm_clear_irq(ctx->motor_pwm_slice_a);
+
+            #if defined(MOTOR_CURRENT_PIN)
+                if (!g_adc_busy) {
+                    adc_select_input(MOTOR_CURRENT_PIN - MOTOR_ADC_BASE_PIN);
+                    uint16_t current_val = adc_read();
+                    const float V_limit = MAX_CURRENT_AMPS * SHUNT_RESISTOR_OHMS;
+                    const uint16_t adc_threshold = (uint16_t)((V_limit / ADC_REF_VOLTAGE) * ADC_MAX_VALUE);
+
+                    if (current_val > adc_threshold) {
+                        pwm_set_gpio_level(ctx->pwm_a_pin, PWM_MAX_TOP); pwm_set_gpio_level(ctx->pwm_b_pin, PWM_MAX_TOP);
+                        return;
+                    }
+                }
+            #endif
+
+            if (ctx->shunt_callback) {
+                trigger_adc_measurement(ctx, SHUNT);
+            }
+
+            if (!ctx->skip_measurement) {
+                ctx->alarm_user_data.ctx = ctx;
+                ctx->alarm_user_data.type = BEMF;
+                add_alarm_in_us(ctx->adc_trigger_delay_us, delayed_adc_trigger_callback, &ctx->alarm_user_data, true);
+            }
+        }
+    }
+}
+
+// =============================================================================
 // Public HAL Function Implementations
 // =============================================================================
 
