@@ -2,6 +2,18 @@
 
 #if defined(ARDUINO_ARCH_RP2040)
 
+// =============================================================================
+// Internal Functions
+// =============================================================================
+static void adc_init_common() {
+    static bool adc_initialized = false;
+    if (!adc_initialized) {
+        adc_init();
+        adc_fifo_setup(true, true, ADC_FIFO_THRESHOLD, false, false);
+        adc_initialized = true;
+    }
+}
+
 static void trigger_adc_measurement(MotorContext* ctx, MeasurementType type) {
     if (!ctx) return;
 
