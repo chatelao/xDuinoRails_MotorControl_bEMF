@@ -421,6 +421,31 @@ static void pwm_init_common(MotorContext* ctx) {
     uint32_t mask = (1u << ctx->motor_pwm_slice_a) | (1u << ctx->motor_pwm_slice_b);
     hw_set_bits(&pwm_hw->en, mask);
         
+    #ifdef DEBUG_PWM
+        // This setup should only run once for the first motor initialized.
+        static bool debug_pwm_initialized = false;
+        if (!debug_pwm_initialized) {
+            // --- Debug PWM Setup ---
+            // Configure a dedicated pin to output a short pulse at the start of each cycle.
+            // This is useful for triggering an oscilloscope to observe motor waveforms.
+            gpio_set_function(DEBUG_PWM_PIN, GPIO_FUNC_PWM);
+            uint debug_pwm_slice = pwm_gpio_to_slice_num(DEBUG_PWM_PIN);
+
+            // Initialize the debug PWM slice with the same configuration (frequency, wrap value)
+            // as the main motor PWM to ensure they are synchronized.
+            pwm_init(debug_pwm_slice, &motor_pwm_conf, true); // Start immediately
+
+            // Set a very short duty cycle to create a trigger pulse.
+            // A 1 microsecond pulse is typically sufficient.
+            // Number of counts for 1us = (1us * system_clock_hz) / clock_divider
+            const float pulse_width_us = 1.0f;
+            uint16_t pulse_counts = (uint16_t)((pulse_width_us * 1e-6f * RP2040_SYSTEM_CLOCK_HZ) / divider);
+            pwm_set_gpio_level(DEBUG_PWM_PIN, pulse_counts);
+
+            debug_pwm_initialized = true;
+        }
+    #endif
+
     ctx->is_initialized = true;
 }
 
