@@ -2,12 +2,12 @@
 !theme vibrant
 scale 1200 width
 
-concise "CPU" as CPU
-concise "PWM Wrap IRQ" as PWM_IRQ
-concise "Timer Alarm" as ALARM
-concise "ADC" as ADC
-concise "DMA" as DMA
-concise "DMA IRQ" as DMA_IRQ
+robust "CPU" as CPU
+robust "PWM Wrap IRQ" as PWM_IRQ
+robust "Timer Alarm" as ALARM
+robust "ADC" as ADC
+robust "DMA" as DMA
+robust "DMA IRQ" as DMA_IRQ
 analog "PWM Counter" as PWM_CNT
 robust "PWM Compare A" as PWM_COMPA
 binary "Internal PWM (A)" as PWM_INT
