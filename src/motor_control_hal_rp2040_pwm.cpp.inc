@@ -2,6 +2,37 @@
 
 #if defined(ARDUINO_ARCH_RP2040)
 
+static void pwm_set_frequency(pwm_config *pwm_conf, uint32_t pwm_frequency, uint16_t* pwm_wrap_value_out) {
+    uint32_t total_div      = RP2040_SYSTEM_CLOCK_HZ / pwm_frequency / 2;
+    float    clk_divider    = 1.0f;
+    uint16_t pwm_wrap_value = 0;
+
+    if (total_div > PWM_MAX_TOP) {
+        clk_divider = (float)total_div / PWM_MAX_TOP;
+        if (clk_divider > PWM_MAX_DIVIDER) clk_divider = PWM_MAX_DIVIDER;
+        pwm_wrap_value = PWM_MAX_TOP;
+    } else if (total_div < 1) {
+        clk_divider = 1.0f;
+        pwm_wrap_value = 1;
+    } else {
+        clk_divider = 1.0f;
+        pwm_wrap_value = (uint16_t)total_div;
+    }
+
+    pwm_config_set_clkdiv(pwm_conf, clk_divider);
+    pwm_config_set_wrap(pwm_conf, pwm_wrap_value);
+    *pwm_wrap_value_out = pwm_wrap_value;
+}
+
+static uint pwm_init_pin(uint8_t pwm_pin) {
+    gpio_set_function(pwm_pin, GPIO_FUNC_PWM);
+    gpio_set_outover(pwm_pin, GPIO_OVERRIDE_INVERT);
+    pwm_set_gpio_level(pwm_pin, PWM_MAX_TOP);
+    uint motor_pwm_slice = pwm_gpio_to_slice_num(pwm_pin);
+    pwm_set_counter(motor_pwm_slice, 0);
+    return motor_pwm_slice;
+}
+
 static void on_pwm_wrap() {
     for (int id = 0; id < MAX_MOTORS; id++) {
         MotorContext* ctx = &g_motors[id];
@@ -38,33 +69,13 @@ static void on_pwm_wrap() {
 }
 
 static void pwm_init_common(MotorContext* ctx) {
-    gpio_set_function(ctx->pwm_a_pin, GPIO_FUNC_PWM);
-    gpio_set_function(ctx->pwm_b_pin, GPIO_FUNC_PWM);
-
-    gpio_set_outover(ctx->pwm_b_pin, GPIO_OVERRIDE_INVERT);
-    gpio_set_outover(ctx->pwm_a_pin, GPIO_OVERRIDE_INVERT);
-    pwm_set_gpio_level(ctx->pwm_a_pin, PWM_MAX_TOP);
-    pwm_set_gpio_level(ctx->pwm_b_pin, PWM_MAX_TOP);
-
-    uint32_t system_clock = RP2040_SYSTEM_CLOCK_HZ;
-    float divider = 1.0f;
-    uint32_t top = system_clock / ctx->pwm_frequency;
-    if (top > PWM_MAX_TOP) {
-        divider = (float)top / (float)PWM_MAX_TOP;
-        if (divider > PWM_MAX_DIVIDER) divider = PWM_MAX_DIVIDER;
-    }
-    ctx->pwm_wrap_value = (uint16_t)(system_clock / (ctx->pwm_frequency * divider)) - 1;
+    ctx->motor_pwm_slice_a = pwm_init_pin(ctx->pwm_a_pin);
+    ctx->motor_pwm_slice_b = pwm_init_pin(ctx->pwm_b_pin);
 
     pwm_config motor_pwm_conf = pwm_get_default_config();
-    pwm_config_set_clkdiv(&motor_pwm_conf, divider);
-    pwm_config_set_wrap(&motor_pwm_conf, ctx->pwm_wrap_value);
+    pwm_set_frequency(&motor_pwm_conf, ctx->pwm_frequency, &ctx->pwm_wrap_value);
     pwm_config_set_phase_correct(&motor_pwm_conf, true);
 
-    ctx->motor_pwm_slice_a = pwm_gpio_to_slice_num(ctx->pwm_a_pin);
-    ctx->motor_pwm_slice_b = pwm_gpio_to_slice_num(ctx->pwm_b_pin);
-
-    pwm_set_counter(ctx->motor_pwm_slice_a, 0);
-    pwm_set_counter(ctx->motor_pwm_slice_b, 0);
     pwm_init(ctx->motor_pwm_slice_a, &motor_pwm_conf, false);
     pwm_init(ctx->motor_pwm_slice_b, &motor_pwm_conf, false);
 
@@ -78,6 +89,7 @@ static void pwm_init_common(MotorContext* ctx) {
             uint debug_pwm_slice = pwm_gpio_to_slice_num(DEBUG_PWM_PIN);
             pwm_init(debug_pwm_slice, &motor_pwm_conf, true);
             const float pulse_width_us = 1.0f;
+            float divider = pwm_config_get_clkdiv(&motor_pwm_conf);
             uint16_t pulse_counts = (uint16_t)((pulse_width_us * 1e-6f * RP2040_SYSTEM_CLOCK_HZ) / divider);
             pwm_set_gpio_level(DEBUG_PWM_PIN, pulse_counts);
             debug_pwm_initialized = true;
