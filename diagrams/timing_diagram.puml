@@ -8,7 +8,7 @@ concise "Timer Alarm" as ALARM
 concise "ADC" as ADC
 concise "DMA" as DMA
 concise "DMA IRQ" as DMA_IRQ
-robust "PWM Counter" as PWM_CNT
+analog "PWM Counter" as PWM_CNT
 robust "PWM Compare A" as PWM_COMPA
 binary "Internal PWM (A)" as PWM_INT
 binary "External PWM (A)" as PWM_EXT
