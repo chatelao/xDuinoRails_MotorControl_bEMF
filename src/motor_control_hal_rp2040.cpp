@@ -140,9 +140,11 @@ static volatile bool g_adc_busy = false;
  */
 
 static void dma_irq_handler();
-static int64_t delayed_adc_trigger_callback(alarm_id_t id, void *user_data);
 static void on_pwm_wrap();
 static void pwm_init_common(MotorContext* ctx);
+static void trigger_adc_measurement(MotorContext* ctx, MeasurementType type);
+static int64_t delayed_adc_trigger_callback(alarm_id_t id, void *user_data);
+
 
 // =============================================================================
 // Internal Helper Functions & Interrupt Service Routines (ISRs)
@@ -154,6 +156,8 @@ static void pwm_init_common(MotorContext* ctx);
  * cycle or a full data buffer) and handle the BEMF measurement and data
  * processing without any intervention from the main application code.
  */
+
+// INTERRUPT HANDLERS
 
 /**
  * @brief DMA Interrupt Handler: The "Mailbox Checker".
@@ -232,6 +236,128 @@ static void dma_irq_handler() {
     }
 }
 
+
+/**
+ * @brief PWM Wrap Interrupt Handler: The "Conductor".
+ * @details This function is the master timer for the entire measurement system.
+ * It is automatically triggered by the PWM hardware at the precise start of
+ * each cycle. Its main job is to schedule the BEMF measurement to occur at
+ * the exact right moment during the "off" part of the cycle.
+ * @note This is an ISR and must be fast.
+ */
+static void on_pwm_wrap() {
+    // Iterate through motors to see which PWM slice triggered the IRQ.
+    for (int id = 0; id < MAX_MOTORS; id++) {
+        MotorContext* ctx = &g_motors[id];
+        if (!ctx->is_initialized) continue;
+
+        // `pwm_get_irq_status_mask()` returns a bitmask of all PWM slices with pending IRQs.
+        // We check if our primary motor slice is among them.
+        if (pwm_get_irq_status_mask() & (1u << ctx->motor_pwm_slice_a)) {
+            pwm_clear_irq(ctx->motor_pwm_slice_a); // Acknowledge the interrupt.
+
+            #if defined(MOTOR_CURRENT_PIN)
+                // --- FAST, HARDWARE-LEVEL OVERCURRENT PROTECTION ---
+                // This provides a rapid, albeit simple, safety mechanism.
+                // It's a blocking ADC read, but it's very fast.
+                if (!g_adc_busy) {
+                    adc_select_input(MOTOR_CURRENT_PIN - MOTOR_ADC_BASE_PIN);
+                    uint16_t current_val = adc_read();
+                    const float V_limit = MAX_CURRENT_AMPS * SHUNT_RESISTOR_OHMS;
+                    const uint16_t adc_threshold = (uint16_t)((V_limit / ADC_REF_VOLTAGE) * ADC_MAX_VALUE);
+
+                    if (current_val > adc_threshold) {
+                        // If the current threshold is exceeded, we immediately disable the PWM
+                        // outputs by setting their level to a state that corresponds to "off",
+                        // considering the inverted output override.
+                        pwm_set_gpio_level(ctx->pwm_a_pin, PWM_MAX_TOP); pwm_set_gpio_level(ctx->pwm_b_pin, PWM_MAX_TOP);
+                        return; // Halt all further processing for this motor this cycle.
+                    }
+                }
+            #endif
+
+            // Trigger the shunt measurement immediately at the start of the PWM cycle.
+            // This is timed to capture the peak current during the ON phase.
+            if (ctx->shunt_callback) {
+                trigger_adc_measurement(ctx, SHUNT);
+            }
+
+            // --- Schedule the BEMF Measurement ---
+            if (!ctx->skip_measurement) {
+                // For a standard driver, the wrap occurs at the start of the ON phase.
+                // We must wait for the PWM pulse to end plus a small settling time.
+                // A hardware timer (`add_alarm_in_us`) is used for this to avoid
+                // blocking the CPU. The delay is calculated from the duty cycle.
+                ctx->alarm_user_data.ctx = ctx;
+                ctx->alarm_user_data.type = BEMF;
+                add_alarm_in_us(ctx->adc_trigger_delay_us, delayed_adc_trigger_callback, &ctx->alarm_user_data, true);
+            }
+        }
+    }
+}
+
+// PWM FUNCTIONS
+
+/**
+ * @brief Common logic for initializing the PWM hardware.
+ * @details This helper function is shared by the public `hal_motor_init_pwm`
+ * and `hal_motor_init_pwm_discrete` functions. It handles the complex calculations
+ * for setting the PWM frequency and configures the GPIO pins and PWM slices.
+ */
+static void pwm_init_common(MotorContext* ctx) {
+    // --- PWM Pin Setup ---
+    // Assign the specified GPIO pins to be controlled by the PWM peripheral.
+    gpio_set_function(ctx->pwm_a_pin, GPIO_FUNC_PWM);
+    gpio_set_function(ctx->pwm_b_pin, GPIO_FUNC_PWM);
+    
+    // Standard drivers also often benefit from inverted logic depending on their datasheets.
+    gpio_set_outover(ctx->pwm_b_pin, GPIO_OVERRIDE_INVERT);
+    gpio_set_outover(ctx->pwm_a_pin, GPIO_OVERRIDE_INVERT);
+    pwm_set_gpio_level(ctx->pwm_a_pin, PWM_MAX_TOP);
+    pwm_set_gpio_level(ctx->pwm_b_pin, PWM_MAX_TOP);
+
+    // --- PWM Frequency Calculation ---
+    // This logic determines the clock divider and `wrap` (or "top") value to
+    // achieve the target frequency. If the required `top` value is > 16 bits,
+    // it calculates the smallest possible clock divider to bring it into range.
+    uint32_t system_clock = RP2040_SYSTEM_CLOCK_HZ;
+    float divider = 1.0f;
+    uint32_t top = system_clock / ctx->pwm_frequency;
+    if (top > PWM_MAX_TOP) {
+        divider = (float)top / (float)PWM_MAX_TOP;
+        if (divider > PWM_MAX_DIVIDER) divider = PWM_MAX_DIVIDER;
+    }
+    ctx->pwm_wrap_value = (uint16_t)(system_clock / (ctx->pwm_frequency * divider)) - 1;
+
+    // --- PWM Peripheral Configuration ---
+    pwm_config motor_pwm_conf = pwm_get_default_config();
+    pwm_config_set_clkdiv(&motor_pwm_conf, divider);
+    pwm_config_set_wrap(&motor_pwm_conf, ctx->pwm_wrap_value);
+    // Phase-correct (triangle) PWM is used. This is important because it means
+    // the center of the PWM "off" period is always at the wrap point of the counter,
+    // simplifying BEMF measurement timing.
+    pwm_config_set_phase_correct(&motor_pwm_conf, true);
+      
+    // Get the slice number associated with each GPIO pin.
+    ctx->motor_pwm_slice_a = pwm_gpio_to_slice_num(ctx->pwm_a_pin);
+    ctx->motor_pwm_slice_b = pwm_gpio_to_slice_num(ctx->pwm_b_pin);
+    
+    // Reset counters and initialize the slices with our configuration, but don't start them yet.
+    pwm_set_counter(ctx->motor_pwm_slice_a, 0);
+    pwm_set_counter(ctx->motor_pwm_slice_b, 0);
+    pwm_init(ctx->motor_pwm_slice_a, &motor_pwm_conf, false);
+    pwm_init(ctx->motor_pwm_slice_b, &motor_pwm_conf, false);
+    
+    // Atomically start both PWM slices using a bitmask on the hardware enable register.
+    // This ensures both slices start on the exact same clock cycle.
+    uint32_t mask = (1u << ctx->motor_pwm_slice_a) | (1u << ctx->motor_pwm_slice_b);
+    hw_set_bits(&pwm_hw->en, mask);
+        
+    ctx->is_initialized = true;
+}
+
+// ADC FUNCTIONS
+
 /**
  * @brief Kicks off an ADC measurement sequence for BEMF or shunt current.
  *
@@ -307,122 +433,6 @@ static int64_t delayed_adc_trigger_callback(alarm_id_t id, void *user_data) {
     return 0; // A non-zero return value would make the alarm repeat.
 }
 
-/**
- * @brief PWM Wrap Interrupt Handler: The "Conductor".
- * @details This function is the master timer for the entire measurement system.
- * It is automatically triggered by the PWM hardware at the precise start of
- * each cycle. Its main job is to schedule the BEMF measurement to occur at
- * the exact right moment during the "off" part of the cycle.
- * @note This is an ISR and must be fast.
- */
-static void on_pwm_wrap() {
-    // Iterate through motors to see which PWM slice triggered the IRQ.
-    for (int id = 0; id < MAX_MOTORS; id++) {
-        MotorContext* ctx = &g_motors[id];
-        if (!ctx->is_initialized) continue;
-
-        // `pwm_get_irq_status_mask()` returns a bitmask of all PWM slices with pending IRQs.
-        // We check if our primary motor slice is among them.
-        if (pwm_get_irq_status_mask() & (1u << ctx->motor_pwm_slice_a)) {
-            pwm_clear_irq(ctx->motor_pwm_slice_a); // Acknowledge the interrupt.
-
-            #if defined(MOTOR_CURRENT_PIN)
-                // --- FAST, HARDWARE-LEVEL OVERCURRENT PROTECTION ---
-                // This provides a rapid, albeit simple, safety mechanism.
-                // It's a blocking ADC read, but it's very fast.
-                if (!g_adc_busy) {
-                    adc_select_input(MOTOR_CURRENT_PIN - MOTOR_ADC_BASE_PIN);
-                    uint16_t current_val = adc_read();
-                    const float V_limit = MAX_CURRENT_AMPS * SHUNT_RESISTOR_OHMS;
-                    const uint16_t adc_threshold = (uint16_t)((V_limit / ADC_REF_VOLTAGE) * ADC_MAX_VALUE);
-
-                    if (current_val > adc_threshold) {
-                        // If the current threshold is exceeded, we immediately disable the PWM
-                        // outputs by setting their level to a state that corresponds to "off",
-                        // considering the inverted output override.
-                        pwm_set_gpio_level(ctx->pwm_a_pin, PWM_MAX_TOP); pwm_set_gpio_level(ctx->pwm_b_pin, PWM_MAX_TOP);
-                        return; // Halt all further processing for this motor this cycle.
-                    }
-                }
-            #endif
-
-            // Trigger the shunt measurement immediately at the start of the PWM cycle.
-            // This is timed to capture the peak current during the ON phase.
-            if (ctx->shunt_callback) {
-                trigger_adc_measurement(ctx, SHUNT);
-            }
-
-            // --- Schedule the BEMF Measurement ---
-            if (!ctx->skip_measurement) {
-                // For a standard driver, the wrap occurs at the start of the ON phase.
-                // We must wait for the PWM pulse to end plus a small settling time.
-                // A hardware timer (`add_alarm_in_us`) is used for this to avoid
-                // blocking the CPU. The delay is calculated from the duty cycle.
-                ctx->alarm_user_data.ctx = ctx;
-                ctx->alarm_user_data.type = BEMF;
-                add_alarm_in_us(ctx->adc_trigger_delay_us, delayed_adc_trigger_callback, &ctx->alarm_user_data, true);
-            }
-        }
-    }
-}
-
-/**
- * @brief Common logic for initializing the PWM hardware.
- * @details This helper function is shared by the public `hal_motor_init_pwm`
- * and `hal_motor_init_pwm_discrete` functions. It handles the complex calculations
- * for setting the PWM frequency and configures the GPIO pins and PWM slices.
- */
-static void pwm_init_common(MotorContext* ctx) {
-    // --- PWM Pin Setup ---
-    // Assign the specified GPIO pins to be controlled by the PWM peripheral.
-    gpio_set_function(ctx->pwm_a_pin, GPIO_FUNC_PWM);
-    gpio_set_function(ctx->pwm_b_pin, GPIO_FUNC_PWM);
-    
-    // Standard drivers also often benefit from inverted logic depending on their datasheets.
-    gpio_set_outover(ctx->pwm_b_pin, GPIO_OVERRIDE_INVERT);
-    gpio_set_outover(ctx->pwm_a_pin, GPIO_OVERRIDE_INVERT);
-    pwm_set_gpio_level(ctx->pwm_a_pin, PWM_MAX_TOP);
-    pwm_set_gpio_level(ctx->pwm_b_pin, PWM_MAX_TOP);
-
-    // --- PWM Frequency Calculation ---
-    // This logic determines the clock divider and `wrap` (or "top") value to
-    // achieve the target frequency. If the required `top` value is > 16 bits,
-    // it calculates the smallest possible clock divider to bring it into range.
-    uint32_t system_clock = RP2040_SYSTEM_CLOCK_HZ;
-    float divider = 1.0f;
-    uint32_t top = system_clock / ctx->pwm_frequency;
-    if (top > PWM_MAX_TOP) {
-        divider = (float)top / (float)PWM_MAX_TOP;
-        if (divider > PWM_MAX_DIVIDER) divider = PWM_MAX_DIVIDER;
-    }
-    ctx->pwm_wrap_value = (uint16_t)(system_clock / (ctx->pwm_frequency * divider)) - 1;
-
-    // --- PWM Peripheral Configuration ---
-    pwm_config motor_pwm_conf = pwm_get_default_config();
-    pwm_config_set_clkdiv(&motor_pwm_conf, divider);
-    pwm_config_set_wrap(&motor_pwm_conf, ctx->pwm_wrap_value);
-    // Phase-correct (triangle) PWM is used. This is important because it means
-    // the center of the PWM "off" period is always at the wrap point of the counter,
-    // simplifying BEMF measurement timing.
-    pwm_config_set_phase_correct(&motor_pwm_conf, true);
-      
-    // Get the slice number associated with each GPIO pin.
-    ctx->motor_pwm_slice_a = pwm_gpio_to_slice_num(ctx->pwm_a_pin);
-    ctx->motor_pwm_slice_b = pwm_gpio_to_slice_num(ctx->pwm_b_pin);
-    
-    // Reset counters and initialize the slices with our configuration, but don't start them yet.
-    pwm_set_counter(ctx->motor_pwm_slice_a, 0);
-    pwm_set_counter(ctx->motor_pwm_slice_b, 0);
-    pwm_init(ctx->motor_pwm_slice_a, &motor_pwm_conf, false);
-    pwm_init(ctx->motor_pwm_slice_b, &motor_pwm_conf, false);
-    
-    // Atomically start both PWM slices using a bitmask on the hardware enable register.
-    // This ensures both slices start on the exact same clock cycle.
-    uint32_t mask = (1u << ctx->motor_pwm_slice_a) | (1u << ctx->motor_pwm_slice_b);
-    hw_set_bits(&pwm_hw->en, mask);
-        
-    ctx->is_initialized = true;
-}
 
 // =============================================================================
 // Public HAL Function Implementations
@@ -434,6 +444,8 @@ static void pwm_init_common(MotorContext* ctx) {
  * developers) will use to control the motors, without needing to know about
  * the complex hardware interactions happening under the hood.
  */
+
+// PWM FUNCTIONS
 
 void hal_motor_init_pwm(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint32_t pwm_frequency, uint8_t motor_id) {
     if (motor_id >= MAX_MOTORS) return;
@@ -448,6 +460,35 @@ void hal_motor_init_pwm(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint32_t pwm_frequ
 
     pwm_init_common(ctx); // Call the shared helper to configure the hardware.
 }
+
+void hal_motor_set_pwm(int duty_cycle, bool forward, uint8_t motor_id) {
+    if (motor_id >= MAX_MOTORS) return;
+    MotorContext* ctx = &g_motors[motor_id];
+    if (!ctx->is_initialized) return;
+
+    // --- Standard Integrated Driver (2-Pin) ---
+    // This is much simpler. Map the 0-255 duty to the counter levels.
+    uint16_t on_level = map(duty_cycle, PWM_DUTY_MIN, PWM_DUTY_MAX, ctx->pwm_wrap_value, 0);
+    uint16_t off_level = PWM_MAX_TOP; // A value that ensures the channel is always off.
+
+    // Determine the correct PWM levels for each pin based on direction.
+    uint16_t level_a = forward ? on_level : off_level;
+    uint16_t level_b = forward ? off_level : on_level;
+
+    // For efficiency, if both motor pins are on the same PWM slice, we can update
+    // their levels simultaneously. This prevents a potential race condition where
+    // one pin is high and the other is low for a very brief period.
+    if (ctx->motor_pwm_slice_a == ctx->motor_pwm_slice_b) {
+        // pwm_set_both_levels expects the levels for channel A and B respectively.
+        pwm_set_both_levels(ctx->motor_pwm_slice_a, level_a, level_b);
+    } else {
+        // Fallback for pins on different slices.
+        pwm_set_gpio_level(ctx->pwm_a_pin, level_a);
+        pwm_set_gpio_level(ctx->pwm_b_pin, level_b);
+    }
+}
+
+// ADC FUNCTIONS
 
 void hal_motor_init_bemf_adc_dma(uint8_t bemf_a_pin, uint8_t bemf_b_pin, hal_bemf_update_callback_t callback, uint8_t motor_id) {
     if (motor_id >= MAX_MOTORS) return;
@@ -568,32 +609,6 @@ void hal_motor_init_shunt_adc_dma(uint8_t shunt_a_pin, uint8_t shunt_b_pin, hal_
     }
 }
 
-void hal_motor_set_pwm(int duty_cycle, bool forward, uint8_t motor_id) {
-    if (motor_id >= MAX_MOTORS) return;
-    MotorContext* ctx = &g_motors[motor_id];
-    if (!ctx->is_initialized) return;
-
-    // --- Standard Integrated Driver (2-Pin) ---
-    // This is much simpler. Map the 0-255 duty to the counter levels.
-    uint16_t on_level = map(duty_cycle, PWM_DUTY_MIN, PWM_DUTY_MAX, ctx->pwm_wrap_value, 0);
-    uint16_t off_level = PWM_MAX_TOP; // A value that ensures the channel is always off.
-
-    // Determine the correct PWM levels for each pin based on direction.
-    uint16_t level_a = forward ? on_level : off_level;
-    uint16_t level_b = forward ? off_level : on_level;
-
-    // For efficiency, if both motor pins are on the same PWM slice, we can update
-    // their levels simultaneously. This prevents a potential race condition where
-    // one pin is high and the other is low for a very brief period.
-    if (ctx->motor_pwm_slice_a == ctx->motor_pwm_slice_b) {
-        // pwm_set_both_levels expects the levels for channel A and B respectively.
-        pwm_set_both_levels(ctx->motor_pwm_slice_a, level_a, level_b);
-    } else {
-        // Fallback for pins on different slices.
-        pwm_set_gpio_level(ctx->pwm_a_pin, level_a);
-        pwm_set_gpio_level(ctx->pwm_b_pin, level_b);
-    }
-}
 
 int hal_motor_get_bemf_buffer(volatile uint16_t** buffer, int* last_write_pos, uint8_t motor_id) {
     if (motor_id >= MAX_MOTORS) return 0;
