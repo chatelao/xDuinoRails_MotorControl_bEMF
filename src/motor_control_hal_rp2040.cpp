@@ -578,12 +578,20 @@ void hal_motor_set_pwm(int duty_cycle, bool forward, uint8_t motor_id) {
     uint16_t on_level = map(duty_cycle, PWM_DUTY_MIN, PWM_DUTY_MAX, ctx->pwm_wrap_value, 0);
     uint16_t off_level = PWM_MAX_TOP; // A value that ensures the channel is always off.
 
-    if (forward) {
-        pwm_set_gpio_level(ctx->pwm_a_pin, on_level);
-        pwm_set_gpio_level(ctx->pwm_b_pin, off_level);
+    // Determine the correct PWM levels for each pin based on direction.
+    uint16_t level_a = forward ? on_level : off_level;
+    uint16_t level_b = forward ? off_level : on_level;
+
+    // For efficiency, if both motor pins are on the same PWM slice, we can update
+    // their levels simultaneously. This prevents a potential race condition where
+    // one pin is high and the other is low for a very brief period.
+    if (ctx->motor_pwm_slice_a == ctx->motor_pwm_slice_b) {
+        // pwm_set_both_levels expects the levels for channel A and B respectively.
+        pwm_set_both_levels(ctx->motor_pwm_slice_a, level_a, level_b);
     } else {
-        pwm_set_gpio_level(ctx->pwm_a_pin, off_level);
-        pwm_set_gpio_level(ctx->pwm_b_pin, on_level);
+        // Fallback for pins on different slices.
+        pwm_set_gpio_level(ctx->pwm_a_pin, level_a);
+        pwm_set_gpio_level(ctx->pwm_b_pin, level_b);
     }
 }
 
