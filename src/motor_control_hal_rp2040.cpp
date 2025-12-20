@@ -672,17 +672,35 @@ void hal_motor_set_pwm(int duty_cycle, bool forward, uint8_t motor_id) {
 
     } else {
         // --- Standard Integrated Driver (2-Pin) ---
-        // This is much simpler. Map the 0-255 duty to the counter levels.
-        uint16_t on_level = map(duty_cycle, PWM_DUTY_MIN, PWM_DUTY_MAX, ctx->pwm_wrap_value, 0);
+        uint16_t on_level  = map(duty_cycle, PWM_DUTY_MIN, PWM_DUTY_MAX, ctx->pwm_wrap_value, 0);
         uint16_t off_level = PWM_MAX_TOP; // A value that ensures the channel is always off.
 
+        uint16_t level_for_pin_a, level_for_pin_b;
         if (forward) {
-           pwm_set_gpio_level(ctx->pwm_a_pin, on_level);
-           pwm_set_gpio_level(ctx->pwm_b_pin, off_level);
+            level_for_pin_a = on_level;
+            level_for_pin_b = off_level;
         } else {
-           pwm_set_gpio_level(ctx->pwm_a_pin, off_level);
-           pwm_set_gpio_level(ctx->pwm_b_pin, on_level);
-       }
+            level_for_pin_a = off_level;
+            level_for_pin_b = on_level;
+        }
+
+        // If both motor pins are on the same PWM slice, we can use the more efficient
+        // `pwm_set_slice_both_levels` function to update them atomically. This is
+        // the common case for standard motor driver breakouts.
+        if (ctx->motor_pwm_slice_a == ctx->motor_pwm_slice_b) {
+            uint chan_of_pin_a = pwm_gpio_to_channel(ctx->pwm_a_pin);
+            // The slice has two channels, A and B. We need to pass the levels in the correct order.
+            if (chan_of_pin_a == PWM_CHAN_A) {
+                pwm_set_both_levels(ctx->motor_pwm_slice_a, level_for_pin_a, level_for_pin_b);
+            } else { // chan_of_pin_a must be PWM_CHAN_B
+                pwm_set_both_levels(ctx->motor_pwm_slice_a, level_for_pin_b, level_for_pin_a);
+            }
+        } else {
+            // As a fallback for less common wiring where pins are on different
+            // slices, we update them individually.
+            pwm_set_gpio_level(ctx->pwm_a_pin, level_for_pin_a);
+            pwm_set_gpio_level(ctx->pwm_b_pin, level_for_pin_b);
+        }
     }
 }
 
