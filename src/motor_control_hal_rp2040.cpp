@@ -20,9 +20,8 @@
  *   (Back-EMF) when it's not being actively powered, we can determine its
  *   speed and position without needing extra sensors. This reduces cost and
  *   complexity.
- * - **Flexible Driver Support:** The code supports both simple, integrated motor
- *   driver chips (2-pin control) and more complex, discrete H-bridges (4-pin
- *   control), allowing for flexibility in hardware design.
+ * - **Flexible Driver Support:** The code supports simple, integrated motor
+ *   driver chips (2-pin control), allowing for flexibility in hardware design.
  * - **Safety First:** Includes basic overcurrent protection to shut down the
  *   motor if it draws too much power, preventing damage.
  */
@@ -99,10 +98,8 @@ struct AlarmUserData {
 struct MotorContext {
     bool     is_initialized;          // Flag to prevent use before configuration.
     // --- Hardware Pin Assignments ---
-    uint8_t  pwm_a_pin;               // For 2-pin, IN1. For 4-pin, High-Side A.
-    uint8_t  pwm_b_pin;               // For 2-pin, IN2. For 4-pin, High-Side B.
-    uint8_t  ls_a_pin;                // Low-Side A (4-pin discrete mode only).
-    uint8_t  ls_b_pin;                // Low-Side B (4-pin discrete mode only).
+    uint8_t  pwm_a_pin;               // For 2-pin, IN1.
+    uint8_t  pwm_b_pin;               // For 2-pin, IN2.
     uint8_t  bemf_a_pin;              // ADC pin for motor terminal A.
     uint8_t  bemf_b_pin;              // ADC pin for motor terminal B.
     uint8_t  shunt_a_pin;             // ADC pin for shunt resistor A.
