@@ -9,8 +9,8 @@ concise "ADC" as ADC
 concise "DMA" as DMA
 concise "DMA IRQ" as DMA_IRQ
 robust "PWM Counter" as PWM_CNT
-concise "Internal PWM (A)" as PWM_INT
-concise "External PWM (A)" as PWM_EXT
+binary "Internal PWM (A)" as PWM_INT
+binary "External PWM (A)" as PWM_EXT
 
 @60
 PWM_CNT is "0"
