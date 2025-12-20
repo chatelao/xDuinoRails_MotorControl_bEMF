@@ -15,13 +15,6 @@ binary "External PWM (A)" as PWM_EXT
 robust "ADC CTRL Reg" as ADC_CTRL
 robust "ADC FIFO" as ADC_FIFO
 
-@0
-PWM_CNT is "0"
-PWM_COMPA is "300"
-ADC_CTRL is "Disabled"
-ADC_FIFO is "Empty"
-
-/' --- Cycle 1 --- '/
 @60
 PWM_CNT is "0"
 PWM_IRQ is "Active"
