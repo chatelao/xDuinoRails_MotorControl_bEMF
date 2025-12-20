@@ -34,11 +34,11 @@ The library uses DMA to transfer ADC samples of the BEMF to a memory buffer with
 
 ## API Reference
 
-For a detailed description of all the library's functions, please refer to the [Developer Reference](specification/DEVELOPER_REFERENCE.en.md).
+For a detailed description of all the library's functions, please refer to the [Developer Reference](specification/DEVELOPER_REFERENCE.md).
 
 ## Getting Started
 
-To get started with the library, we recommend following the steps in the [How to Use](HOW_TO_USE.en.md) guide. You can also find practical examples in the `examples` directory of this project.
+To get started with the library, we recommend following the steps in the [How to Use](HOW_TO_USE.md) guide. You can also find practical examples in the `examples` directory of this project.
 
 ## Troubleshooting
 

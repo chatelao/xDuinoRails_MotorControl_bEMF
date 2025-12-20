@@ -1,23 +1,23 @@
 site_name: xDuinoRails Motor Control bEMF HAL
-docs_dir: user_documentation
+docs_dir: docs
 theme:
   name: material
   language: en
 nav:
   - 'index.md'
-  - 'User Manual': 'USER_MANUAL.en.md'
-  - 'How To Use': 'HOW_TO_USE.en.md'
+  - 'User Manual': 'USER_MANUAL.md'
+  - 'How To Use': 'HOW_TO_USE.md'
   - 'Supported Hardware':
-    - 'Seeed Studio XIAO RP2040': 'SEEED_XIAO_RP2040.en.md'
-    - 'Motor Driver ICs': 'MOTOR_DRIVER_ICS.en.md'
+    - 'Seeed Studio XIAO RP2040': 'SEEED_XIAO_RP2040.md'
+    - 'Motor Driver ICs': 'MOTOR_DRIVER_ICS.md'
   - 'Specifications':
-    - 'Core Concepts': 'specification/CORE_CONCEPTS.en.md'
-    - 'Developer Reference': 'specification/DEVELOPER_REFERENCE.en.md'
-    - 'Hardware Control': 'specification/HARDWARE_CONTROL.en.md'
-    - 'BEMF Measurement': 'specification/BEMF_MEASUREMENT_TECHNIQUES.en.md'
-    - 'PWM Frequencies': 'specification/PWM_FREQUENCIES.en.md'
-    - 'Discrete H-Bridge Plan': 'specification/DISCRETE_H_BRIDGE_PLAN.en.md'
-    - 'Technical Debts': 'specification/TECHNICAL_DEBTS.en.md'
-    - 'Testing Improvements': 'specification/TESTING_IMPROVEMENTS.en.md'
-  - 'Contributing': 'specification/CONTRIBUTING.en.md'
+    - 'Core Concepts': 'specification/CORE_CONCEPTS.md'
+    - 'Developer Reference': 'specification/DEVELOPER_REFERENCE.md'
+    - 'Hardware Control': 'specification/HARDWARE_CONTROL.md'
+    - 'BEMF Measurement': 'specification/BEMF_MEASUREMENT_TECHNIQUES.md'
+    - 'PWM Frequencies': 'specification/PWM_FREQUENCIES.md'
+    - 'Discrete H-Bridge Plan': 'specification/DISCRETE_H_BRIDGE_PLAN.md'
+    - 'Technical Debts': 'specification/TECHNICAL_DEBTS.md'
+    - 'Testing Improvements': 'specification/TESTING_IMPROVEMENTS.md'
+  - 'Contributing': 'specification/CONTRIBUTING.md'
   - 'Roadmap': 'specification/ROADMAP.md'

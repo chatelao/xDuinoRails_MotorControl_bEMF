@@ -1,7 +1,7 @@
 AGENTS.md
 
 # Must Read before and Update After Execution
-- [ ] specification/TESTING_IMPROVEMENTS.en.md
+- [ ] specification/TESTING_IMPROVEMENTS.md
 
 # Structure
 - Keep sources in “src”, exceptions are possible depending on special technologies
@@ -16,7 +16,6 @@ AGENTS.md
 - Create and maintain on every change the following files:
   “user_documentation/HOW_TO_USE.md”, “user_documentation/USER_MANUAL.md”,
   “specification/CORE_CONCEPTS.md”, “specification/DEVELOPER_REFERENCE.md” and “specification/TECHNICAL_DEBTS.md”
-- Bilingual documentation files must have identical, English base names, with suffixes `.en.md` for English and `.de.md` for German.
 
 # Code
 Follow the most used file & code naming conventions in the project:
