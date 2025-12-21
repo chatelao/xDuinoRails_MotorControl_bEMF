@@ -75,6 +75,7 @@ static void dma_irq_handler();
 static int64_t delayed_adc_trigger_callback(alarm_id_t id, void *user_data);
 static void on_pwm_wrap();
 static void pwm_init_common(MotorContext* ctx);
+static void pwm_set_motor_levels(MotorContext* ctx, uint16_t level_a, uint16_t level_b);
 
 #endif // ARDUINO_ARCH_RP2040
 #endif // MOTOR_CONTROL_HAL_RP2040_INTERNAL_H

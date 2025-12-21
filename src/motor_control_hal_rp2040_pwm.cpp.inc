@@ -68,6 +68,15 @@ static void on_pwm_wrap() {
     }
 }
 
+static void pwm_set_motor_levels(MotorContext* ctx, uint16_t level_a, uint16_t level_b) {
+    if (ctx->motor_pwm_slice_a == ctx->motor_pwm_slice_b) {
+        pwm_set_both_levels(ctx->motor_pwm_slice_a, level_a, level_b);
+    } else {
+        pwm_set_gpio_level(ctx->pwm_a_pin, level_a);
+        pwm_set_gpio_level(ctx->pwm_b_pin, level_b);
+    }
+}
+
 static void pwm_init_common(MotorContext* ctx) {
     ctx->motor_pwm_slice_a = pwm_init_pin(ctx->pwm_a_pin);
     ctx->motor_pwm_slice_b = pwm_init_pin(ctx->pwm_b_pin);
