@@ -25,7 +25,13 @@ Our full documentation is available [here](https://OpenRailAssociation.github.io
     ```
 2.  PlatformIO will automatically download and install the library the next time you build your project.
 
-## Wiring Diagram
+## Supported Platforms
+
+### Raspberry Pi RP2040
+
+The HAL is implemented for the Raspberry Pi RP2040, and has been tested with the Seeed Studio XIAO RP2040.
+
+**Wiring Diagram**
 
 This diagram shows a typical wiring setup using a Seeed Studio XIAO RP2040 and a BDR-6133 motor driver.
 
@@ -47,6 +53,10 @@ This diagram shows a typical wiring setup using a Seeed Studio XIAO RP2040 and a
                      |       (bEMF A) A2  |<-------------------------------/
                      +--------------------+
 ```
+
+### STMicroelectronics STM32G431
+
+The HAL is implemented for the STM32G431, and has been tested with the Nucleo G431RB development board.
 
 ## Getting Started
 
@@ -75,12 +85,15 @@ void setup() {
   Serial.begin(115200);
 
   // 3. Initialize the motor hardware abstraction layer
-  hal_motor_init(MOTOR_PWM_A_PIN, MOTOR_PWM_B_PIN, MOTOR_BEMF_A_PIN, MOTOR_BEMF_B_PIN, on_bemf_update);
+  hal_motor_init_pwm(MOTOR_PWM_A_PIN, MOTOR_PWM_B_PIN);
+  hal_motor_init_bemf_adc(MOTOR_BEMF_A_PIN, MOTOR_BEMF_B_PIN);
+  hal_motor_init_bemf_dma(on_bemf_update);
+
 
   // 4. Set a motor speed and direction
   // The duty_cycle is a value between 0 and 255.
   // The second parameter is the direction (true for forward, false for reverse).
-  hal_motor_set_pwm(128, true);
+  hal_motor_set_duty(128, true);
 }
 
 void loop() {
@@ -93,11 +106,19 @@ You can find this and other examples in the `examples` folder of this repository
 
 ## API Reference
 
-### `void hal_motor_init(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint8_t bemf_a_pin, uint8_t bemf_b_pin, hal_bemf_update_callback_t callback)`
+### `void hal_motor_init_pwm(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint32_t pwm_frequency = 20000, uint8_t motor_id = 0)`
 
-Initializes the low-level hardware for motor control. This function configures the hardware timers, PWM peripherals, ADC, and DMA for hardware-accelerated motor control and BEMF measurement. It must be called once during the application's setup phase.
+Initializes the PWM hardware for a standard 2-pin motor driver.
 
-### `void hal_motor_set_pwm(int duty_cycle, bool forward)`
+### `void hal_motor_init_bemf_adc(uint8_t bemf_a_pin, uint8_t bemf_b_pin, uint8_t motor_id = 0)`
+
+Initializes the ADC for BEMF sensing.
+
+### `void hal_motor_init_bemf_dma(hal_bemf_update_callback_t callback, uint8_t motor_id = 0)`
+
+Initializes the DMA for BEMF sensing.
+
+### `void hal_motor_set_duty(int duty_cycle, bool forward, uint8_t motor_id = 0)`
 
 Sets the motor's PWM duty cycle and direction. This function updates the PWM hardware with the new duty cycle. It should be called periodically from the main application loop to reflect the latest output from the motor control algorithm (e.g., a PI controller).
 
