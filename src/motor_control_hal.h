@@ -26,9 +26,6 @@ const uint32_t BEMF_RING_BUFFER_SIZE = 64;
 const uint32_t BEMF_RING_BUFFER_SIZE = 4;
 #endif
 
-// Delay after the PWM cycle before triggering ADC, allows the motor coils' magnetic field to collapse.
-const uint32_t BEMF_MEASUREMENT_DELAY_US = 10;
-
 // Value to indicate that a pin is not used/undefined.
 const uint8_t MOTOR_PIN_UNDEFINED = 0xFF;
 
