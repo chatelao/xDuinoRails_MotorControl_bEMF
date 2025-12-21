@@ -59,9 +59,10 @@ static uint16_t pwm_set_frequency(pwm_config *pwm_conf, uint32_t pwm_frequency) 
 }
 
 static uint pwm_init_pin(uint8_t pwm_pin) {
-    gpio_set_function(pwm_pin, GPIO_FUNC_PWM);
-    gpio_set_outover(pwm_pin, GPIO_OVERRIDE_INVERT);
-    pwm_set_gpio_level(pwm_pin, PWM_MAX_TOP);
+    gpio_set_function(  pwm_pin, GPIO_FUNC_PWM);
+    gpio_set_outover(   pwm_pin, GPIO_OVERRIDE_INVERT);
+    pwm_set_gpio_level( pwm_pin, PWM_MAX_TOP);
+
     uint motor_pwm_slice = pwm_gpio_to_slice_num(pwm_pin);
     pwm_set_counter(motor_pwm_slice, 0);
     return motor_pwm_slice;
@@ -95,12 +96,12 @@ static void pwm_init_common(MotorContext* ctx) {
         // The IRQ handler is shared across all PWM slices. It's set once.
         static bool pwm_irq_initialized = false;
         if (!pwm_irq_initialized) {
-            irq_set_exclusive_handler(PWM_IRQ_WRAP, on_pwm_wrap);
-            irq_set_enabled(PWM_IRQ_WRAP, true);
+            irq_set_exclusive_handler( PWM_IRQ_WRAP, on_pwm_wrap );
+            irq_set_enabled(           PWM_IRQ_WRAP, true );
             pwm_irq_initialized = true;
         }
         // Enable the interrupt for the specific slice of the current motor.
-        pwm_clear_irq(ctx->motor_pwm_slice_a);
+        pwm_clear_irq(      ctx->motor_pwm_slice_a);
         pwm_set_irq_enabled(ctx->motor_pwm_slice_a, true);
     #endif
 
