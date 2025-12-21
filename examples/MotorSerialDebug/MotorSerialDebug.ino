@@ -67,8 +67,9 @@ void setup() {
 
   // Initialize the motor hardware abstraction layer.
   hal_motor_init_pwm(MOTOR_PWM_A_PIN, MOTOR_PWM_B_PIN);
-  // BEMF sensing is optional. To enable it, uncomment the following line.
-  // hal_motor_init_bemf_adc_dma(MOTOR_BEMF_A_PIN, MOTOR_BEMF_B_PIN, nullptr);
+  // BEMF sensing is optional. To enable it, uncomment the following lines.
+  // hal_motor_init_bemf_adc(MOTOR_BEMF_A_PIN, MOTOR_BEMF_B_PIN);
+  // hal_motor_init_bemf_dma(nullptr);
 
   // Initial state: Stopped, Forward
   hal_motor_set_duty(0, true);

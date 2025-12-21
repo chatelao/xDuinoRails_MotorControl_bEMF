@@ -23,6 +23,11 @@ void hal_motor_init_pwm(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint32_t pwm_frequ
 }
 
 void hal_motor_init_bemf_adc_dma(uint8_t bemf_a_pin, uint8_t bemf_b_pin, hal_bemf_update_callback_t callback, uint8_t motor_id) {
+    hal_motor_init_bemf_adc(bemf_a_pin, bemf_b_pin, motor_id);
+    hal_motor_init_bemf_dma(callback, motor_id);
+}
+
+void hal_motor_init_bemf_adc(uint8_t bemf_a_pin, uint8_t bemf_b_pin, uint8_t motor_id) {
     if (motor_id >= MAX_MOTORS) return;
     MotorContext* ctx = &g_motors[motor_id];
     if (!ctx->is_initialized) return;
@@ -30,7 +35,6 @@ void hal_motor_init_bemf_adc_dma(uint8_t bemf_a_pin, uint8_t bemf_b_pin, hal_bem
     ctx->dma_channel_bemf = -1;
     ctx->bemf_a_pin = bemf_a_pin;
     ctx->bemf_b_pin = bemf_b_pin;
-    ctx->bemf_callback = callback;
     ctx->adc_trigger_delay_us = BEMF_MEASUREMENT_DELAY_US;
 
     bool bemf_enabled = (bemf_a_pin != MOTOR_PIN_UNDEFINED) && (bemf_b_pin != MOTOR_PIN_UNDEFINED);
@@ -46,6 +50,16 @@ void hal_motor_init_bemf_adc_dma(uint8_t bemf_a_pin, uint8_t bemf_b_pin, hal_bem
 
     adc_gpio_init(ctx->bemf_a_pin);
     adc_gpio_init(ctx->bemf_b_pin);
+}
+
+void hal_motor_init_bemf_dma(hal_bemf_update_callback_t callback, uint8_t motor_id) {
+    if (motor_id >= MAX_MOTORS) return;
+    MotorContext* ctx = &g_motors[motor_id];
+    if (!ctx->is_initialized) return;
+
+    ctx->bemf_callback = callback;
+    bool bemf_enabled = (ctx->bemf_a_pin != MOTOR_PIN_UNDEFINED) && (ctx->bemf_b_pin != MOTOR_PIN_UNDEFINED);
+    if (!bemf_enabled) return;
 
     ctx->dma_channel_bemf = dma_claim_unused_channel(true);
     dma_channel_config dma_config = dma_channel_get_default_config(ctx->dma_channel_bemf);
@@ -68,10 +82,14 @@ void hal_motor_init_bemf_adc_dma(uint8_t bemf_a_pin, uint8_t bemf_b_pin, hal_bem
         irq_set_enabled(DMA_IRQ_0, true);
         dma_irq_initialized = true;
     }
-
 }
 
 void hal_motor_init_shunt_adc_dma(uint8_t shunt_a_pin, uint8_t shunt_b_pin, hal_shunt_update_callback_t callback, uint8_t motor_id) {
+    hal_motor_init_shunt_adc(shunt_a_pin, shunt_b_pin, motor_id);
+    hal_motor_init_shunt_dma(callback, motor_id);
+}
+
+void hal_motor_init_shunt_adc(uint8_t shunt_a_pin, uint8_t shunt_b_pin, uint8_t motor_id) {
     if (motor_id >= MAX_MOTORS) return;
     MotorContext* ctx = &g_motors[motor_id];
     if (!ctx->is_initialized) return;
@@ -79,7 +97,6 @@ void hal_motor_init_shunt_adc_dma(uint8_t shunt_a_pin, uint8_t shunt_b_pin, hal_
     ctx->dma_channel_shunt = -1;
     ctx->shunt_a_pin = shunt_a_pin;
     ctx->shunt_b_pin = shunt_b_pin;
-    ctx->shunt_callback = callback;
 
     bool shunt_enabled = (shunt_a_pin != MOTOR_PIN_UNDEFINED) && (shunt_b_pin != MOTOR_PIN_UNDEFINED);
     if (!shunt_enabled) return;
@@ -93,6 +110,16 @@ void hal_motor_init_shunt_adc_dma(uint8_t shunt_a_pin, uint8_t shunt_b_pin, hal_
 
     adc_gpio_init(ctx->shunt_a_pin);
     adc_gpio_init(ctx->shunt_b_pin);
+}
+
+void hal_motor_init_shunt_dma(hal_shunt_update_callback_t callback, uint8_t motor_id) {
+    if (motor_id >= MAX_MOTORS) return;
+    MotorContext* ctx = &g_motors[motor_id];
+    if (!ctx->is_initialized) return;
+
+    ctx->shunt_callback = callback;
+    bool shunt_enabled = (ctx->shunt_a_pin != MOTOR_PIN_UNDEFINED) && (ctx->shunt_b_pin != MOTOR_PIN_UNDEFINED);
+    if (!shunt_enabled) return;
 
     ctx->dma_channel_shunt = dma_claim_unused_channel(true);
     dma_channel_config dma_config = dma_channel_get_default_config(ctx->dma_channel_shunt);
