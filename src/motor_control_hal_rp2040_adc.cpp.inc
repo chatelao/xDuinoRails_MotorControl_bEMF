@@ -33,12 +33,6 @@ static void trigger_adc_measurement(MotorContext* ctx, MeasurementType type) { /
     adc_run(true); // Start the ADC.
 }
 
-static int64_t delayed_adc_trigger_callback(alarm_id_t id, void *user_data) { // Callback function for the delayed ADC trigger.
-    AlarmUserData* data = (AlarmUserData*)user_data; // Cast the user data to AlarmUserData.
-    trigger_adc_measurement(data->ctx, data->type); // Trigger the ADC measurement.
-    return 0; // Return 0.
-}
-
 static void dma_irq_handler() { // DMA interrupt handler.
     for (int id = 0; id < MAX_MOTORS; id++) { // Loop through all motors.
         MotorContext* ctx = &g_motors[id]; // Get the motor context.

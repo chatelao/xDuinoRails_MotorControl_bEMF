@@ -27,9 +27,7 @@ void __not_in_flash_func(on_pwm_wrap)() {
             }
 
             if (!ctx->skip_measurement) {
-                ctx->alarm_user_data.ctx = ctx;
-                ctx->alarm_user_data.type = BEMF;
-                add_alarm_in_us(ctx->adc_trigger_delay_us, delayed_adc_trigger_callback, &ctx->alarm_user_data, true);
+                trigger_adc_measurement(ctx, BEMF);
             }
         }
     }

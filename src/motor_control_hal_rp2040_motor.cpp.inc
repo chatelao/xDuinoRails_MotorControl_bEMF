@@ -35,7 +35,6 @@ void hal_motor_init_bemf_adc(uint8_t bemf_a_pin, uint8_t bemf_b_pin, uint8_t mot
     ctx->dma_channel_bemf = -1;
     ctx->bemf_a_pin = bemf_a_pin;
     ctx->bemf_b_pin = bemf_b_pin;
-    ctx->adc_trigger_delay_us = BEMF_MEASUREMENT_DELAY_US;
 
     bool bemf_enabled = (bemf_a_pin != MOTOR_PIN_UNDEFINED) && (bemf_b_pin != MOTOR_PIN_UNDEFINED);
     ctx->skip_measurement = !bemf_enabled;
