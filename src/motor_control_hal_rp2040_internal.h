@@ -30,8 +30,7 @@ const uint16_t PWM_DEAD_TIME_CYCLES = 50;
 // Data Structures
 // =============================================================================
 enum MeasurementType {
-    BEMF,
-    SHUNT
+    BEMF
 };
 
 struct MotorContext;
@@ -47,8 +46,6 @@ struct MotorContext {
     uint8_t  pwm_b_pin;
     uint8_t  bemf_a_pin;
     uint8_t  bemf_b_pin;
-    uint8_t  shunt_a_pin;
-    uint8_t  shunt_b_pin;
     uint     motor_pwm_slice_a;
     uint     motor_pwm_slice_b;
     uint16_t pwm_wrap_value;
@@ -58,9 +55,6 @@ struct MotorContext {
     int      dma_channel_bemf;
     volatile uint16_t          bemf_ring_buffer[BEMF_RING_BUFFER_SIZE];
     hal_bemf_update_callback_t bemf_callback;
-    int                        dma_channel_shunt;
-    volatile uint16_t          shunt_ring_buffer[SHUNT_RING_BUFFER_SIZE];
-    hal_shunt_update_callback_t shunt_callback;
     volatile uint32_t           adc_trigger_delay_us;
     volatile bool               skip_measurement;
     AlarmUserData               alarm_user_data;
