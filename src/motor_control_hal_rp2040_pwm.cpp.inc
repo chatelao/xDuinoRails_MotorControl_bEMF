@@ -5,30 +5,31 @@
 void __not_in_flash_func(on_pwm_wrap)() {
     // This ISR is shared by all PWM slices. It iterates through all motors
     // and checks if the interrupt was triggered for their specific slice.
-    uint32_t irq_status = pwm_get_irq_status_mask();
+    uint32_t irq_pwm_slices = pwm_get_irq_status_mask();
 
     for (int id = 0; id < MAX_MOTORS; id++) {
         MotorContext* ctx = &g_motors[id];
-        if (!ctx->is_initialized) continue;
 
-        // Check if the interrupt was triggered for the current motor's slice.
-        if (irq_status & (1u << ctx->motor_pwm_slice_a)) {
-            pwm_clear_irq(ctx->motor_pwm_slice_a);
+        if (  !ctx->is_initialized                                // Current motor is not active
+           || !(irq_pwm_slices & (1u << ctx->motor_pwm_slice_a))  // Current slice did not trigger the interrupt
+           )
+          continue;
 
-            // Atomically update PWM duty cycles for motors on different slices.
-            // Motors on the same slice are updated directly in `hal_motor_set_duty`.
-            if (ctx->motor_pwm_slice_a != ctx->motor_pwm_slice_b) {
-                pwm_set_gpio_level(ctx->pwm_a_pin, ctx->next_duty_level_a);
-                pwm_set_gpio_level(ctx->pwm_b_pin, ctx->next_duty_level_b);
-            }
+        pwm_clear_irq(ctx->motor_pwm_slice_a);
 
-            if (ctx->shunt_callback) {
-                trigger_adc_measurement(ctx, SHUNT);
-            }
+        // Atomically update PWM duty cycles for motors on different slices.
+        // Motors on the same slice are updated directly in `hal_motor_set_duty`.
+        if (ctx->motor_pwm_slice_a != ctx->motor_pwm_slice_b) {
+            pwm_set_gpio_level(ctx->pwm_a_pin, ctx->next_duty_level_a);
+            pwm_set_gpio_level(ctx->pwm_b_pin, ctx->next_duty_level_b);
+        }
 
-            if (!ctx->skip_measurement) {
-                trigger_adc_measurement(ctx, BEMF);
-            }
+        if (ctx->shunt_callback) {
+            trigger_adc_measurement(ctx, SHUNT);
+        }
+
+        if (!ctx->skip_measurement) {
+            trigger_adc_measurement(ctx, BEMF);
         }
     }
 }
