@@ -68,6 +68,9 @@ extern volatile bool g_adc_busy;
 static void trigger_adc_measurement(MotorContext* ctx, MeasurementType type);
 static void dma_irq_handler();
 static void on_pwm_wrap();
+#ifdef USE_IRQ_TRIGGER
+    static void pwm_init_irq(MotorContext* ctx);
+#endif
 static void pwm_init_common(MotorContext* ctx);
 static void pwm_set_duty_level(MotorContext* ctx);
 
