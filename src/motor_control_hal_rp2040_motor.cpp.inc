@@ -19,9 +19,6 @@ void hal_motor_init_pwm(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint32_t pwm_frequ
     ctx->pwm_frequency = pwm_frequency;
     ctx->pwm_a_pin = pwm_a_pin;
     ctx->pwm_b_pin = pwm_b_pin;
-    ctx->dma_channel_bemf = -1;
-    ctx->dma_channel_shunt = -1;
-
     pwm_init_common(ctx);
 }
 
@@ -30,6 +27,7 @@ void hal_motor_init_bemf_adc_dma(uint8_t bemf_a_pin, uint8_t bemf_b_pin, hal_bem
     MotorContext* ctx = &g_motors[motor_id];
     if (!ctx->is_initialized) return;
 
+    ctx->dma_channel_bemf = -1;
     ctx->bemf_a_pin = bemf_a_pin;
     ctx->bemf_b_pin = bemf_b_pin;
     ctx->bemf_callback = callback;
@@ -78,6 +76,7 @@ void hal_motor_init_shunt_adc_dma(uint8_t shunt_a_pin, uint8_t shunt_b_pin, hal_
     MotorContext* ctx = &g_motors[motor_id];
     if (!ctx->is_initialized) return;
 
+    ctx->dma_channel_shunt = -1;
     ctx->shunt_a_pin = shunt_a_pin;
     ctx->shunt_b_pin = shunt_b_pin;
     ctx->shunt_callback = callback;
