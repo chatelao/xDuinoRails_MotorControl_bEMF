@@ -22,24 +22,12 @@
 // BEMF ring buffer size, adapted to the PWM frequency
 #ifdef LED_EDITION
 const uint32_t BEMF_RING_BUFFER_SIZE = 64;
-const uint32_t SHUNT_RING_BUFFER_SIZE = 64;
 #else
 const uint32_t BEMF_RING_BUFFER_SIZE = 4;
-const uint32_t SHUNT_RING_BUFFER_SIZE = 4;
 #endif
 
 // Delay after the PWM cycle before triggering ADC, allows the motor coils' magnetic field to collapse.
 const uint32_t BEMF_MEASUREMENT_DELAY_US = 10;
-
-// Default Shunt Resistor value in Ohms (can be overridden by build flags)
-#ifndef SHUNT_RESISTOR_OHMS
-#define SHUNT_RESISTOR_OHMS 0.5f
-#endif
-
-// Default Short Circuit Current Limit in Amps (can be overridden)
-#ifndef MAX_CURRENT_AMPS
-#define MAX_CURRENT_AMPS 2.0f
-#endif
 
 // Value to indicate that a pin is not used/undefined.
 const uint8_t MOTOR_PIN_UNDEFINED = 0xFF;
@@ -56,16 +44,6 @@ const uint8_t MOTOR_PIN_UNDEFINED = 0xFF;
  *                       as the absolute difference between the two ADC readings.
  */
 typedef void (*hal_bemf_update_callback_t)(int raw_bemf_value);
-
-/**
- * @brief Callback function pointer type for Shunt updates.
- *
- * This function is called from an interrupt context whenever a new
- * shunt measurement is available from the hardware.
- *
- * @param raw_shunt_value The raw, unfiltered shunt value.
- */
-typedef void (*hal_shunt_update_callback_t)(int raw_shunt_value);
 
 /**
  * @brief Initializes the PWM hardware for a standard 2-pin motor driver.
@@ -105,33 +83,6 @@ void hal_motor_init_bemf_adc(uint8_t bemf_a_pin, uint8_t bemf_b_pin, uint8_t mot
 void hal_motor_init_bemf_dma(hal_bemf_update_callback_t callback, uint8_t motor_id = 0);
 
 /**
- * @brief Initializes the Shunt sensing hardware using DMA.
- *
- * @param shunt_a_pin The ADC pin for motor terminal A.
- * @param shunt_b_pin The ADC pin for motor terminal B.
- * @param callback Function to be called with new shunt data.
- * @param motor_id The index of the motor to control.
- */
-void hal_motor_init_shunt_adc_dma(uint8_t shunt_a_pin, uint8_t shunt_b_pin, hal_shunt_update_callback_t callback, uint8_t motor_id = 0) __attribute__((deprecated("Use hal_motor_init_shunt_adc and hal_motor_init_shunt_dma instead")));
-
-/**
- * @brief Initializes the ADC for Shunt sensing.
- *
- * @param shunt_a_pin The ADC pin for motor terminal A.
- * @param shunt_b_pin The ADC pin for motor terminal B.
- * @param motor_id The index of the motor to control.
- */
-void hal_motor_init_shunt_adc(uint8_t shunt_a_pin, uint8_t shunt_b_pin, uint8_t motor_id = 0);
-
-/**
- * @brief Initializes the DMA for Shunt sensing.
- *
- * @param callback Function to be called with new shunt data.
- * @param motor_id The index of the motor to control.
- */
-void hal_motor_init_shunt_dma(hal_shunt_update_callback_t callback, uint8_t motor_id = 0);
-
-/**
  * @brief Sets the motor's PWM duty cycle and direction.
  *
  * This function updates the PWM hardware with the new duty cycle. It should
@@ -159,18 +110,6 @@ void hal_motor_set_duty(int duty_cycle, bool forward, uint8_t motor_id = 0);
  * @return The total size of the ring buffer (number of samples).
  */
 int hal_motor_get_bemf_buffer(volatile uint16_t** buffer, int* last_write_pos, uint8_t motor_id = 0);
-
-/**
- * @brief Retrieves the Shunt Sensing ring buffer.
- *
- * Optional: Only available if enabled/supported by the platform and configuration.
- *
- * @param[out] buffer Pointer to the uint16_t pointer that will be set to the address of the buffer.
- * @param[out] last_write_pos Pointer to an integer that will be set to the last written position.
- * @param motor_id The index of the motor to control (0 to MAX_MOTORS-1). Defaults to 0.
- * @return The size of the ring buffer, or 0 if not supported.
- */
-int hal_motor_get_shunt_buffer(volatile uint16_t** buffer, int* last_write_pos, uint8_t motor_id = 0);
 
 /**
  * @brief Checks the solenoid/motor position by pinging both directions and measuring the response.
