@@ -7,13 +7,12 @@
  * change its direction. It also shows how to read the motor's speed using BEMF.
  *
  * ## How it Works
- * - Turning the encoder knob increases or decreases the motor's target speed.
- *   One full rotation of a 24-detent encoder will ramp the speed from 0 to 100%.
- * - Pressing the encoder's push-button has two functions:
- *   1. If the motor is currently moving, it acts as an emergency stop, setting
- *      the target speed to 0.
- *   2. If the motor is stopped, it toggles the direction of travel for the next
- *      time the motor starts (Forward -> Reverse -> Forward).
+ * - Turning the encoder knob controls both the speed and direction of the motor.
+ * - Turning clockwise increases speed in the forward direction.
+ * - Turning counter-clockwise decreases speed, stops the motor at the center
+ *   position (0), and then increases speed in the reverse direction.
+ * - One full rotation ramps the speed from 0 to 100% in either direction.
+ * - Pressing the encoder's push-button acts as an emergency stop.
  *
  * ## Hardware Setup
  * For detailed wiring instructions, please see the README.md file located in
@@ -78,10 +77,9 @@ void on_bemf_update(int raw_bemf) {
 RotaryEncoder encoder(ENCODER_PIN_A, ENCODER_PIN_B);
 
 // --- Control Logic Parameters ---
-const long ENCODER_MIN_POSITION =   0;
+const long ENCODER_MIN_POSITION = -24; // One full turn for reverse
 const long ENCODER_MAX_POSITION =  24; // Assumes a standard 24-detent encoder for one full turn.
 const int MAX_PWM_DUTY_CYCLE    = 255;   // The PWM duty cycle at 100% encoder turn.
-bool motorDirection             = true;           // Current motor direction: true for forward, false for reverse.
 int current_speed               =   0;                // Current motor speed
 
 // --- Button Debouncing ---
@@ -93,7 +91,7 @@ void setup() {
   // Start serial communication for debugging output.
   Serial.begin(115200);
   Serial.println("Rotary Encoder Motor Control with HAL Example");
-  Serial.println("Turn the knob to change speed, press it to stop or change direction.");
+  Serial.println("Turn for speed/direction, press to stop.");
 
   // Initialize the motor hardware abstraction layer.
   hal_motor_init_pwm(MOTOR_PWM_A_PIN, MOTOR_PWM_B_PIN);
@@ -104,8 +102,8 @@ void setup() {
   // This means the pin will be HIGH by default and LOW when the button is pressed.
   pinMode(ENCODER_SWITCH_PIN, INPUT_PULLUP);
 
-  // Start the encoder at the minimum position.
-  encoder.setPosition(ENCODER_MIN_POSITION);
+  // Start the encoder at the center (stopped) position.
+  encoder.setPosition(0);
 
 
 #ifdef LED_EDITION
@@ -136,17 +134,20 @@ void loop() {
     encoder.setPosition(newPosition);
   }
 
-  // Map the constrained encoder position to the PWM duty cycle.
-  int newSpeed = map(newPosition, ENCODER_MIN_POSITION, ENCODER_MAX_POSITION, 0, MAX_PWM_DUTY_CYCLE);
+  // Determine direction based on the sign of the position.
+  bool motorDirection = (newPosition >= 0);
+
+  // Map the absolute encoder position to the PWM duty cycle.
+  int newSpeed = map(abs(newPosition), 0, ENCODER_MAX_POSITION, 0, MAX_PWM_DUTY_CYCLE);
   if (newSpeed != current_speed) {
     hal_motor_set_duty(newSpeed, motorDirection);
     current_speed = newSpeed;
     if (newSpeed > 0) {
 #ifdef LED_EDITION
       if (motorDirection) {
-        pixels.setPixelColor(0, pixels.Color(0, 255, 0)); // Green for forward
+        pixels.setPixelColor(0, pixels.Color(0, 150, 0)); // Green for forward
       } else {
-        pixels.setPixelColor(0, pixels.Color(0, 0, 255)); // Blue for backward
+        pixels.setPixelColor(0, pixels.Color(0, 0, 150)); // Blue for backward
       }
       pixels.show();
 #endif
@@ -158,27 +159,22 @@ void loop() {
     }
     Serial.print("New Speed (PWM): ");
     Serial.println(newSpeed);
+    Serial.print("Direction: ");
+    Serial.println(motorDirection ? "Forward" : "Reverse");
   }
 
-  // --- Button Logic for Stop/Direction Control ---
+  // --- Button Logic for Emergency Stop ---
   // Check if the button is pressed (pin is LOW) and if enough time has passed since the last press.
   if (digitalRead(ENCODER_SWITCH_PIN) == LOW && (millis() - lastButtonPressTime) > DEBOUNCE_DELAY) {
-    if (current_speed > 0) {
-      // If the motor is currently moving, stop it and reset the encoder position.
-      hal_motor_set_duty(0, motorDirection);
-      current_speed = 0;
-      encoder.setPosition(ENCODER_MIN_POSITION);
+    // Emergency stop: Set the encoder position to 0, which stops the motor.
+    encoder.setPosition(0);
+    hal_motor_set_duty(0, motorDirection);
+    current_speed = 0;
 #ifdef LED_EDITION
-      pixels.setPixelColor(0, pixels.Color(255, 0, 0)); // Red for stop
-      pixels.show();
+    pixels.setPixelColor(0, pixels.Color(255, 0, 0)); // Red for stop
+    pixels.show();
 #endif
-      Serial.println("Motor stopped.");
-    } else {
-      // If the motor is stopped, toggle the direction for the next run.
-      motorDirection = !motorDirection;
-      Serial.print("Direction changed to: ");
-      Serial.println(motorDirection ? "Forward" : "Reverse");
-    }
+    Serial.println("Emergency Stop: Motor stopped and position reset.");
     // Record the time of this press to handle debouncing.
     lastButtonPressTime = millis();
   }
