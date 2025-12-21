@@ -32,7 +32,6 @@ void hal_motor_init_bemf_adc(uint8_t bemf_a_pin, uint8_t bemf_b_pin, uint8_t mot
     ctx->bemf_b_pin = bemf_b_pin;
 
     bool bemf_enabled = (bemf_a_pin != MOTOR_PIN_UNDEFINED) && (bemf_b_pin != MOTOR_PIN_UNDEFINED);
-    ctx->skip_measurement = !bemf_enabled;
     if (!bemf_enabled) return;
 
     static bool adc_initialized = false;

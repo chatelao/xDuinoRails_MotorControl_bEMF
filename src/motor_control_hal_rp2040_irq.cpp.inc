@@ -26,7 +26,7 @@ void __not_in_flash_func(on_pwm_wrap)() {
             pwm_set_gpio_level(ctx->pwm_b_pin, ctx->next_duty_level_b);
         }
 
-        if (!ctx->skip_measurement) {
+        if (ctx->dma_channel_bemf != -1) {
             trigger_adc_measurement(ctx);
         }
     }

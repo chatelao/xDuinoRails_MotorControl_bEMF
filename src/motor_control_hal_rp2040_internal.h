@@ -50,7 +50,6 @@ struct MotorContext {
     int      dma_channel_bemf;
     volatile uint16_t          bemf_ring_buffer[BEMF_RING_BUFFER_SIZE];
     hal_bemf_update_callback_t bemf_callback;
-    volatile bool               skip_measurement;
     AlarmUserData               alarm_user_data;
 };
 
