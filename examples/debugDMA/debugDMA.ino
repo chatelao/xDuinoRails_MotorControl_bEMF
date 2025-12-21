@@ -48,17 +48,10 @@ void setup() {
     dma_channel = dma_claim_unused_channel(true);
     dma_channel_config cfg = dma_channel_get_default_config(dma_channel);
 
-    // Configure a 16-bit transfer.
-    channel_config_set_transfer_data_size(&cfg, DMA_SIZE_16);
-    // Read from the same source address every time.
-    channel_config_set_read_increment(&cfg, false);
-    // Increment the write address.
-    channel_config_set_write_increment(&cfg, true);
-
-    // Configure the write address to wrap around.
-    // The 3rd parameter is the power-of-2 size of the wrap boundary.
-    // 2^5 = 32 bytes = 16 * sizeof(uint16_t).
-    channel_config_set_ring(&cfg, true, 5);
+    channel_config_set_transfer_data_size( &cfg, DMA_SIZE_16); // SIZE  - Configure 16-bit transfers.
+    channel_config_set_read_increment(     &cfg, false);       // READ  - Keep the address fix.
+    channel_config_set_write_increment(    &cfg, true);        // WRITE - Auto-Increment the address.
+    channel_config_set_ring(               &cfg, true, 5);     // WRITE - true = "ring for WRITE ", ring size = 2^5 = 32 bytes
 
     // Configure the channel, but don't start it yet.
     // It will be triggered manually in the loop.
@@ -67,16 +60,17 @@ void setup() {
     dma_channel_configure(
         dma_channel,
         &cfg,
-        ring_buffer,       // Destination: start of our ring buffer
-        &source_value,     // Source: the single value
-        0xFFFFFFFF,        // Run for a long time
-        false              // Don't start yet
+        ring_buffer,       // Dst:   Start of our ring buffer
+        &source_value,     // Src:   A single value
+        0xFFFFFFFF,        // Time:  Run for a long time
+        false              // Start: Don't start yet
     );
 
     DEBUG_SERIAL.println("DMA configured. Manually triggering in loop().");
 }
 
 void loop() {
+    
     // 1. Update the source value with something new.
     source_value++;
 
