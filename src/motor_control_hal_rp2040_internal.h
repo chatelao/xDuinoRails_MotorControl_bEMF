@@ -3,7 +3,7 @@
 
 #include "motor_control_hal.h"
 
-#if defined(ARDUINO_ARCH_RP2040)
+#ifdef ARDUINO_ARCH_RP2040
 
 #include <Arduino.h>
 #include "hardware/pwm.h"
