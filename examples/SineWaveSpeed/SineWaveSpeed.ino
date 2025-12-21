@@ -116,11 +116,11 @@ void loop() {
 
   // Set the motor PWM.
   // Using default motor_id = 0 (Implicit)
-  hal_motor_set_pwm(pwmValue, motorDirection);
+  hal_motor_set_duty(pwmValue, motorDirection);
 
 #if defined(ARDUINO_SEEED_XIAO_RP2040) && !defined(LED_EDITION)
   // Drive the parallel LED motor
-  hal_motor_set_pwm(pwmValue, motorDirection, 1);
+  hal_motor_set_duty(pwmValue, motorDirection, 1);
 #endif
 
 #if defined(ARDUINO_SEEED_XIAO_RP2040)

@@ -28,9 +28,9 @@ void hal_motor_check_solenoid_position(int ping_pwm_value, int ping_duration_ms,
     int buffer_size;
 
     // --- Ping A (Forward) ---
-    hal_motor_set_pwm(ping_pwm_value, true, motor_id);
+    hal_motor_set_duty(ping_pwm_value, true, motor_id);
     delay(ping_duration_ms);
-    hal_motor_set_pwm(0, true, motor_id); // Switch off
+    hal_motor_set_duty(0, true, motor_id); // Switch off
 
     // Wait for the measurement delay.
     delayMicroseconds(measurement_delay_us);
@@ -63,9 +63,9 @@ void hal_motor_check_solenoid_position(int ping_pwm_value, int ping_duration_ms,
     delay(50);
 
     // --- Ping B (Reverse) ---
-    hal_motor_set_pwm(ping_pwm_value, false, motor_id);
+    hal_motor_set_duty(ping_pwm_value, false, motor_id);
     delay(ping_duration_ms);
-    hal_motor_set_pwm(0, false, motor_id); // Switch off
+    hal_motor_set_duty(0, false, motor_id); // Switch off
 
     delayMicroseconds(measurement_delay_us);
 
@@ -89,5 +89,5 @@ void hal_motor_check_solenoid_position(int ping_pwm_value, int ping_duration_ms,
     }
 
     // Ensure motor is off
-    hal_motor_set_pwm(0, true, motor_id);
+    hal_motor_set_duty(0, true, motor_id);
 }
