@@ -13,7 +13,7 @@ static void dma_irq_handler();
  * the DMA transfer count and write address to begin a new capture sequence into the
  * ring buffer.
  */
-static void dma_start_bemf_capture(MotorContext* ctx) {
+static void dma_bemf_start_capture(MotorContext* ctx) {
     if (!ctx || ctx->dma_channel_bemf < 0) return;
 
     // Reset the DMA transfer count and set the write address to the start of the ring buffer.

@@ -23,7 +23,7 @@ static void trigger_adc_measurement(MotorContext* ctx) {
     adc_fifo_drain(); // Ensure FIFO is clear before starting a new capture
 
     // Start the DMA transfer which will be paced by the ADC's DREQ
-    dma_start_bemf_capture(ctx);
+    dma_bemf_start_capture(ctx);
 
     adc_run(true); // Enable the ADC to start the measurement
 }
