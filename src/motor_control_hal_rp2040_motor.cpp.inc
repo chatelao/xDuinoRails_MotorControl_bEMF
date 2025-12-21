@@ -130,7 +130,7 @@ void hal_motor_set_duty(int duty_cycle, bool forward, uint8_t motor_id) {
     ctx->next_duty_level_b = forward ? off_level : on_level;
 
     if (ctx->motor_pwm_slice_a == ctx->motor_pwm_slice_b) {
-        pwm_set_motor_levels(ctx, ctx->next_duty_level_a, ctx->next_duty_level_b);
+        pwm_set_duty_level(ctx);
     }
 }
 

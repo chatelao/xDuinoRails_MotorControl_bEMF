@@ -54,21 +54,6 @@ void __not_in_flash_func(on_pwm_wrap)() {
                 pwm_set_gpio_level(ctx->pwm_b_pin, ctx->next_duty_level_b);
             }
 
-            #if defined(MOTOR_CURRENT_PIN)
-                if (!g_adc_busy) {
-                    adc_select_input(MOTOR_CURRENT_PIN - MOTOR_ADC_BASE_PIN);
-                    uint16_t current_val = adc_read();
-                    const float V_limit = MAX_CURRENT_AMPS * SHUNT_RESISTOR_OHMS;
-                    const uint16_t adc_threshold = (uint16_t)((V_limit / ADC_REF_VOLTAGE) * ADC_MAX_VALUE);
-
-                    if (current_val > adc_threshold) {
-                        pwm_set_gpio_level(ctx->pwm_a_pin, PWM_MAX_TOP);
-                        pwm_set_gpio_level(ctx->pwm_b_pin, PWM_MAX_TOP);
-                        return; // Bail out on overcurrent
-                    }
-                }
-            #endif
-
             if (ctx->shunt_callback) {
                 trigger_adc_measurement(ctx, SHUNT);
             }
@@ -82,12 +67,12 @@ void __not_in_flash_func(on_pwm_wrap)() {
     }
 }
 
-static void pwm_set_motor_levels(MotorContext* ctx, uint16_t level_a, uint16_t level_b) {
+static void pwm_set_duty_level(MotorContext* ctx) {
     if (ctx->motor_pwm_slice_a == ctx->motor_pwm_slice_b) {
-        pwm_set_both_levels(ctx->motor_pwm_slice_a, level_a, level_b);
+        pwm_set_both_levels(ctx->motor_pwm_slice_a, ctx->next_duty_level_a, ctx->next_duty_level_b);
     } else {
-        pwm_set_gpio_level(ctx->pwm_a_pin, level_a);
-        pwm_set_gpio_level(ctx->pwm_b_pin, level_b);
+        pwm_set_gpio_level(ctx->pwm_a_pin, ctx->next_duty_level_a);
+        pwm_set_gpio_level(ctx->pwm_b_pin, ctx->next_duty_level_b);
     }
 }
 
