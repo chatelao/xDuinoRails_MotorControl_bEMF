@@ -2,9 +2,6 @@
 
 #if defined(ARDUINO_ARCH_RP2040)
 
-// Forward declaration for the IRQ handler, which is used to set up the interrupt
-// before the function itself is defined.
-static void dma_irq_handler();
 
 /**
  * @brief Starts the DMA transfer for BEMF ADC samples.
