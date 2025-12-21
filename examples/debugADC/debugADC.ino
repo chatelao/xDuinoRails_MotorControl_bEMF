@@ -7,8 +7,14 @@
 // Constants
 // =============================================================================
 #define ADC_RING_BUFFER_SIZE 4
-const uint ADC_PIN_A = D7; // Corresponds to GPIO28
-const uint ADC_PIN_B = D8; // Corresponds to GPIO27
+#if defined(ARDUINO_SEEED_XIAO_RP2040)
+  const uint ADC_PIN_A = D0; // Corresponds to GPIO26 for XIAO RP2040
+  const uint ADC_PIN_B = D1; // Corresponds to GPIO27 for XIAO RP2040
+#else
+  // Default for Raspberry Pi Pico and other similar boards
+  const uint ADC_PIN_A = 28; // Pico ADC2 is GPIO28
+  const uint ADC_PIN_B = 27; // Pico ADC1 is GPIO27
+#endif
 const uint MOTOR_ADC_BASE_PIN = 26;
 
 // =============================================================================
