@@ -4,7 +4,7 @@
 
 // Forward declaration for the IRQ handler, which is used to set up the interrupt
 // before the function itself is defined.
-static void dma_irq_handler();
+static void dma_bemf_irq_handler();
 
 /**
  * @brief Starts the DMA transfer for BEMF ADC samples.
@@ -29,7 +29,7 @@ static void dma_start_bemf_capture(MotorContext* ctx) {
  * stops the ADC, processes the collected samples to calculate the average BEMF voltage,
  * and invokes the user-provided callback with the result.
  */
-static void dma_irq_handler() {
+static void dma_bemf_irq_handler() {
     for (int id = 0; id < MAX_MOTORS; id++) {
         MotorContext* ctx = &g_motors[id];
         if (!ctx->is_initialized || ctx->dma_channel_bemf < 0) continue;
@@ -98,7 +98,7 @@ void hal_motor_init_bemf_dma(hal_bemf_update_callback_t callback, uint8_t motor_
     dma_channel_set_irq0_enabled(ctx->dma_channel_bemf, true);
     static bool dma_irq_initialized = false;
     if (!dma_irq_initialized) {
-        irq_set_exclusive_handler(DMA_IRQ_0, dma_irq_handler);
+        irq_set_exclusive_handler(DMA_IRQ_0, dma_bemf_irq_handler);
         irq_set_enabled(DMA_IRQ_0, true);
         dma_irq_initialized = true;
     }
