@@ -118,7 +118,7 @@ void hal_motor_init_shunt_adc_dma(uint8_t shunt_a_pin, uint8_t shunt_b_pin, hal_
     }
 }
 
-void hal_motor_set_pwm(int duty_cycle, bool forward, uint8_t motor_id) {
+void hal_motor_set_duty(int duty_cycle, bool forward, uint8_t motor_id) {
     if (motor_id >= MAX_MOTORS) return;
     MotorContext* ctx = &g_motors[motor_id];
     if (!ctx->is_initialized) return;
@@ -126,13 +126,11 @@ void hal_motor_set_pwm(int duty_cycle, bool forward, uint8_t motor_id) {
     uint16_t on_level  = map(duty_cycle, PWM_DUTY_MIN, PWM_DUTY_MAX, ctx->pwm_wrap_value, 0);
     uint16_t off_level = PWM_MAX_TOP;
 
-    ctx->next_level_a = forward ? on_level : off_level;
-    ctx->next_level_b = forward ? off_level : on_level;
+    ctx->next_duty_level_a = forward ? on_level : off_level;
+    ctx->next_duty_level_b = forward ? off_level : on_level;
 
-    // For same-slice motors, the PWM levels must be updated immediately
-    // because the ISR can't handle the 'both levels' case atomically.
     if (ctx->motor_pwm_slice_a == ctx->motor_pwm_slice_b) {
-        pwm_set_motor_levels(ctx, ctx->next_level_a, ctx->next_level_b);
+        pwm_set_motor_levels(ctx, ctx->next_duty_level_a, ctx->next_duty_level_b);
     }
 }
 

@@ -52,8 +52,8 @@ struct MotorContext {
     uint     motor_pwm_slice_a;
     uint     motor_pwm_slice_b;
     uint16_t pwm_wrap_value;
-    uint16_t next_level_a;
-    uint16_t next_level_b;
+    uint16_t next_duty_level_a;
+    uint16_t next_duty_level_b;
     uint32_t pwm_frequency;
     int      dma_channel_bemf;
     volatile uint16_t          bemf_ring_buffer[BEMF_RING_BUFFER_SIZE];

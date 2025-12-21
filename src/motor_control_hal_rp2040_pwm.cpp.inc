@@ -35,19 +35,23 @@ static uint pwm_init_pin(uint8_t pwm_pin) {
 }
 
 void __not_in_flash_func(on_pwm_wrap)() {
+    // This ISR is shared by all PWM slices. It iterates through all motors
+    // and checks if the interrupt was triggered for their specific slice.
+    uint32_t irq_status = pwm_get_irq_status_mask();
+
     for (int id = 0; id < MAX_MOTORS; id++) {
         MotorContext* ctx = &g_motors[id];
         if (!ctx->is_initialized) continue;
 
-        uint32_t current_slice_mask = 1u << ctx->motor_pwm_slice_a;
-        if (pwm_get_irq_status_mask() & current_slice_mask) {
+        // Check if the interrupt was triggered for the current motor's slice.
+        if (irq_status & (1u << ctx->motor_pwm_slice_a)) {
             pwm_clear_irq(ctx->motor_pwm_slice_a);
 
-            // This logic is for motors with PWM pins on different slices.
-            // For same-slice motors, the update is handled in hal_motor_set_pwm.
+            // Atomically update PWM duty cycles for motors on different slices.
+            // Motors on the same slice are updated directly in `hal_motor_set_duty`.
             if (ctx->motor_pwm_slice_a != ctx->motor_pwm_slice_b) {
-                pwm_set_gpio_level(ctx->pwm_a_pin, ctx->next_level_a);
-                pwm_set_gpio_level(ctx->pwm_b_pin, ctx->next_level_b);
+                pwm_set_gpio_level(ctx->pwm_a_pin, ctx->next_duty_level_a);
+                pwm_set_gpio_level(ctx->pwm_b_pin, ctx->next_duty_level_b);
             }
 
             #if defined(MOTOR_CURRENT_PIN)
@@ -92,8 +96,8 @@ static void pwm_init_common(MotorContext* ctx) {
     ctx->motor_pwm_slice_b = pwm_init_pin(ctx->pwm_b_pin);
 
     // Default to OFF state, which is MAX_TOP due to inverted output
-    ctx->next_level_a = PWM_MAX_TOP;
-    ctx->next_level_b = PWM_MAX_TOP;
+    ctx->next_duty_level_a = PWM_MAX_TOP;
+    ctx->next_duty_level_b = PWM_MAX_TOP;
 
     pwm_config motor_pwm_conf = pwm_get_default_config();
     ctx->pwm_wrap_value = pwm_set_frequency(&motor_pwm_conf, ctx->pwm_frequency);

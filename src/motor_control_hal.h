@@ -108,7 +108,7 @@ void hal_motor_init_shunt_adc_dma(uint8_t shunt_a_pin, uint8_t shunt_b_pin, hal_
  * @param forward The desired motor direction (true for forward, false for reverse).
  * @param motor_id The index of the motor to control (0 to MAX_MOTORS-1). Defaults to 0.
  */
-void hal_motor_set_pwm(int duty_cycle, bool forward, uint8_t motor_id = 0);
+void hal_motor_set_duty(int duty_cycle, bool forward, uint8_t motor_id = 0);
 
 /**
  * @brief Retrieves the BEMF ring buffer for diagnostics.
