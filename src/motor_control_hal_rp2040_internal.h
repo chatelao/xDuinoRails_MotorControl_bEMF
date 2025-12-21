@@ -29,15 +29,10 @@ const uint16_t PWM_DEAD_TIME_CYCLES = 50;
 // =============================================================================
 // Data Structures
 // =============================================================================
-enum MeasurementType {
-    BEMF
-};
-
 struct MotorContext;
 
 struct AlarmUserData {
     MotorContext* ctx;
-    MeasurementType type;
 };
 
 struct MotorContext {
@@ -65,7 +60,7 @@ extern volatile bool g_adc_busy;
 // =============================================================================
 // Forward Declarations
 // =============================================================================
-static void trigger_adc_measurement(MotorContext* ctx, MeasurementType type);
+static void trigger_adc_measurement(MotorContext* ctx);
 static void dma_irq_handler();
 static void on_pwm_wrap();
 #ifdef USE_IRQ_TRIGGER
