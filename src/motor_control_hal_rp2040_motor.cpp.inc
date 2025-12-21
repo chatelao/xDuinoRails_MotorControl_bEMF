@@ -22,11 +22,6 @@ void hal_motor_init_pwm(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint32_t pwm_frequ
     pwm_init_common(ctx);
 }
 
-void hal_motor_init_bemf_adc_dma(uint8_t bemf_a_pin, uint8_t bemf_b_pin, hal_bemf_update_callback_t callback, uint8_t motor_id) {
-    hal_motor_init_bemf_adc(bemf_a_pin, bemf_b_pin, motor_id);
-    hal_motor_init_bemf_dma(callback, motor_id);
-}
-
 void hal_motor_init_bemf_adc(uint8_t bemf_a_pin, uint8_t bemf_b_pin, uint8_t motor_id) {
     if (motor_id >= MAX_MOTORS) return;
     MotorContext* ctx = &g_motors[motor_id];
