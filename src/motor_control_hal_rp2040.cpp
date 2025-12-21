@@ -16,6 +16,7 @@
 
 #include "motor_control_hal_rp2040_internal.h"
 #include "motor_control_hal_rp2040_adc.cpp.inc"
+#include "motor_control_hal_rp2040_dma.cpp.inc"
 #include "motor_control_hal_rp2040_irq.cpp.inc"
 #include "motor_control_hal_rp2040_pwm.cpp.inc"
 #include "motor_control_hal_rp2040_motor.cpp.inc"

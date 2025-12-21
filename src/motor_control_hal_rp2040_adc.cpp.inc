@@ -21,33 +21,4 @@ static void trigger_adc_measurement(MotorContext* ctx) { // Function to trigger 
     adc_run(true); // Start the ADC.
 }
 
-static void dma_irq_handler() { // DMA interrupt handler.
-    for (int id = 0; id < MAX_MOTORS; id++) { // Loop through all motors.
-        MotorContext* ctx = &g_motors[id]; // Get the motor context.
-        if (!ctx->is_initialized) continue; // If the motor is not initialized, continue.
-
-        if (ctx->dma_channel_bemf >= 0 && (dma_hw->ints0 & (1u << ctx->dma_channel_bemf))) { // If the BEMF DMA channel interrupt is pending.
-
-            adc_run(false); // Stop the ADC.
-            g_adc_busy = false; // Clear the ADC busy flag.
-
-            dma_hw->ints0 = 1u << ctx->dma_channel_bemf; // Clear the DMA interrupt.
-
-            uint32_t sum_A = 0, sum_B = 0; // Initialize sums for channels A and B.
-
-            for (uint i = 0; i < BEMF_RING_BUFFER_SIZE; i += 2) { // Loop through the BEMF ring buffer.
-                sum_B += ctx->bemf_ring_buffer[i]; // Add the value from channel B to sum_B.
-                sum_A += ctx->bemf_ring_buffer[i + 1]; // Add the value from channel A to sum_A.
-            }
-
-            int count = BEMF_RING_BUFFER_SIZE / 2; // Calculate the number of samples per channel.
-            int measured_bemf = abs((int)(sum_A / count) - (int)(sum_B / count)); // Calculate the measured BEMF.
-
-            if (ctx->bemf_callback) { // If a BEMF callback is registered.
-                ctx->bemf_callback(measured_bemf); // Call the BEMF callback.
-            }
-        }
-    }
-}
-
 #endif // ARDUINO_ARCH_RP2040
