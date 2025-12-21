@@ -75,6 +75,7 @@ static void trigger_adc_measurement(MotorContext* ctx, MeasurementType type);
 static void dma_irq_handler();
 static void on_pwm_wrap();
 static void pwm_init_common(MotorContext* ctx);
+static void irq_init_pwm(MotorContext* ctx);
 static void pwm_set_duty_level(MotorContext* ctx);
 
 #endif // ARDUINO_ARCH_RP2040
