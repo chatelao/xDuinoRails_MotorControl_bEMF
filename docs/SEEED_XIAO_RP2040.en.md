@@ -32,7 +32,7 @@ The Seeed Studio XIAO RP2040 is a powerful, low-power microcontroller in a tiny 
 
 ## Pinout
 
-![XIAO RP2040 Pinout](https://files.seeedstudio.com/wiki/XIAO-RP2040/img/xinpin.jpg)
+![XIAO RP2040 Pinout](pinout_rp2040.png)
 
 ### External Pins
 
