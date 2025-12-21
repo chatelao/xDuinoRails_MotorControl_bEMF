@@ -61,7 +61,6 @@ struct MotorContext {
     int                        dma_channel_shunt;
     volatile uint16_t          shunt_ring_buffer[SHUNT_RING_BUFFER_SIZE];
     hal_shunt_update_callback_t shunt_callback;
-    volatile uint32_t           adc_trigger_delay_us;
     volatile bool               skip_measurement;
     AlarmUserData               alarm_user_data;
 };
@@ -74,7 +73,6 @@ extern volatile bool g_adc_busy;
 // =============================================================================
 static void trigger_adc_measurement(MotorContext* ctx, MeasurementType type);
 static void dma_irq_handler();
-static int64_t delayed_adc_trigger_callback(alarm_id_t id, void *user_data);
 static void on_pwm_wrap();
 static void pwm_init_common(MotorContext* ctx);
 static void pwm_set_duty_level(MotorContext* ctx);
