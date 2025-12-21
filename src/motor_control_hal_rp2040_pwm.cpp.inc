@@ -91,20 +91,6 @@ static void pwm_init_common(MotorContext* ctx) {
     uint32_t mask = (1u << ctx->motor_pwm_slice_a) | (1u << ctx->motor_pwm_slice_b);
     hw_set_bits(&pwm_hw->en, mask);
 
-    #ifdef DEBUG_PWM
-        static bool debug_pwm_initialized = false;
-        if (!debug_pwm_initialized) {
-            gpio_set_function(DEBUG_PWM_PIN, GPIO_FUNC_PWM);
-            uint debug_pwm_slice = pwm_gpio_to_slice_num(DEBUG_PWM_PIN);
-            pwm_init(debug_pwm_slice, &motor_pwm_conf, true);
-            const float pulse_width_us = 1.0f;
-            float divider = pwm_config_get_clkdiv(&motor_pwm_conf);
-            uint16_t pulse_counts = (uint16_t)((pulse_width_us * 1e-6f * RP2040_SYSTEM_CLOCK_HZ) / divider);
-            pwm_set_gpio_level(DEBUG_PWM_PIN, pulse_counts);
-            debug_pwm_initialized = true;
-        }
-    #endif
-
     ctx->is_initialized = true;
 }
 
