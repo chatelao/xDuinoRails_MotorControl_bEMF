@@ -27,7 +27,7 @@ void __not_in_flash_func(on_pwm_wrap)() {
         }
 
         if (!ctx->skip_measurement) {
-            trigger_adc_measurement(ctx, BEMF);
+            trigger_adc_measurement(ctx);
         }
     }
 }
