@@ -2,38 +2,6 @@
 
 #if defined(ARDUINO_ARCH_RP2040)
 
-static uint16_t pwm_set_frequency(pwm_config *pwm_conf, uint32_t pwm_frequency) {
-    uint32_t total_div      = RP2040_SYSTEM_CLOCK_HZ / pwm_frequency / 2;
-    float    clk_divider    =                      1.0f;
-    uint16_t pwm_wrap_value =                         0;
-
-    if (total_div > PWM_MAX_TOP) {
-        clk_divider = (float)total_div / PWM_MAX_TOP;
-        if (clk_divider > PWM_MAX_DIVIDER) clk_divider = PWM_MAX_DIVIDER;
-        pwm_wrap_value = PWM_MAX_TOP;
-    } else if (total_div < 1) {
-        clk_divider    = 1.0f;
-        pwm_wrap_value = 1;
-    } else {
-        clk_divider    = 1.0f;
-        pwm_wrap_value = (uint16_t)total_div;
-    }
-
-    pwm_config_set_clkdiv( pwm_conf, clk_divider);
-    pwm_config_set_wrap(   pwm_conf, pwm_wrap_value);
-
-    return pwm_wrap_value;
-}
-
-static uint pwm_init_pin(uint8_t pwm_pin) {
-    gpio_set_function(pwm_pin, GPIO_FUNC_PWM);
-    gpio_set_outover(pwm_pin, GPIO_OVERRIDE_INVERT);
-    pwm_set_gpio_level(pwm_pin, PWM_MAX_TOP);
-    uint motor_pwm_slice = pwm_gpio_to_slice_num(pwm_pin);
-    pwm_set_counter(motor_pwm_slice, 0);
-    return motor_pwm_slice;
-}
-
 void __not_in_flash_func(on_pwm_wrap)() {
     // This ISR is shared by all PWM slices. It iterates through all motors
     // and checks if the interrupt was triggered for their specific slice.
@@ -65,6 +33,38 @@ void __not_in_flash_func(on_pwm_wrap)() {
             }
         }
     }
+}
+
+static uint16_t pwm_set_frequency(pwm_config *pwm_conf, uint32_t pwm_frequency) {
+    uint32_t total_div      = RP2040_SYSTEM_CLOCK_HZ / pwm_frequency / 2;
+    float    clk_divider    =                      1.0f;
+    uint16_t pwm_wrap_value =                         0;
+
+    if (total_div > PWM_MAX_TOP) {
+        clk_divider = (float)total_div / PWM_MAX_TOP;
+        if (clk_divider > PWM_MAX_DIVIDER) clk_divider = PWM_MAX_DIVIDER;
+        pwm_wrap_value = PWM_MAX_TOP;
+    } else if (total_div < 1) {
+        clk_divider    = 1.0f;
+        pwm_wrap_value = 1;
+    } else {
+        clk_divider    = 1.0f;
+        pwm_wrap_value = (uint16_t)total_div;
+    }
+
+    pwm_config_set_clkdiv( pwm_conf, clk_divider);
+    pwm_config_set_wrap(   pwm_conf, pwm_wrap_value);
+
+    return pwm_wrap_value;
+}
+
+static uint pwm_init_pin(uint8_t pwm_pin) {
+    gpio_set_function(pwm_pin, GPIO_FUNC_PWM);
+    gpio_set_outover(pwm_pin, GPIO_OVERRIDE_INVERT);
+    pwm_set_gpio_level(pwm_pin, PWM_MAX_TOP);
+    uint motor_pwm_slice = pwm_gpio_to_slice_num(pwm_pin);
+    pwm_set_counter(motor_pwm_slice, 0);
+    return motor_pwm_slice;
 }
 
 static void pwm_set_duty_level(MotorContext* ctx) {
