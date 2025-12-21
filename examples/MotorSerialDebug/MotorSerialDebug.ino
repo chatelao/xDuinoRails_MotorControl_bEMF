@@ -71,7 +71,7 @@ void setup() {
   // hal_motor_init_bemf_adc_dma(MOTOR_BEMF_A_PIN, MOTOR_BEMF_B_PIN, nullptr);
 
   // Initial state: Stopped, Forward
-  hal_motor_set_pwm(0, true);
+  hal_motor_set_duty(0, true);
 
 #ifdef LED_EDITION
   // Initialize Neopixel for LED_EDITION
@@ -96,14 +96,14 @@ void loop() {
       // pwm = (digit * 10 * 255) / 100 = (digit * 255) / 10
       current_speed = (digit * 255) / 10;
 
-      hal_motor_set_pwm(current_speed, current_direction);
+      hal_motor_set_duty(current_speed, current_direction);
       Serial.print("Set Speed: ");
       Serial.print(digit * 10);
       Serial.println("%");
 
     } else if (c == '-') {
       current_direction = !current_direction;
-      hal_motor_set_pwm(current_speed, current_direction);
+      hal_motor_set_duty(current_speed, current_direction);
       Serial.print("Set Direction: ");
       Serial.println(current_direction ? "Forward" : "Reverse");
     }

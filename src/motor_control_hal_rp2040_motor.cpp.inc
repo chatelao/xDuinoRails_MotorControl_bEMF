@@ -71,12 +71,6 @@ void hal_motor_init_bemf_adc_dma(uint8_t bemf_a_pin, uint8_t bemf_b_pin, hal_bem
         dma_irq_initialized = true;
     }
 
-    #ifdef USE_IRQ_TRIGGER
-        pwm_clear_irq(ctx->motor_pwm_slice_a);
-        pwm_set_irq_enabled(ctx->motor_pwm_slice_a, true);
-        irq_set_exclusive_handler(PWM_IRQ_WRAP, on_pwm_wrap);
-        irq_set_enabled(PWM_IRQ_WRAP, true);
-    #endif
 }
 
 void hal_motor_init_shunt_adc_dma(uint8_t shunt_a_pin, uint8_t shunt_b_pin, hal_shunt_update_callback_t callback, uint8_t motor_id) {
@@ -124,18 +118,20 @@ void hal_motor_init_shunt_adc_dma(uint8_t shunt_a_pin, uint8_t shunt_b_pin, hal_
     }
 }
 
-void hal_motor_set_pwm(int duty_cycle, bool forward, uint8_t motor_id) {
+void hal_motor_set_duty(int duty_cycle, bool forward, uint8_t motor_id) {
     if (motor_id >= MAX_MOTORS) return;
     MotorContext* ctx = &g_motors[motor_id];
     if (!ctx->is_initialized) return;
 
-    uint16_t on_level = map(duty_cycle, PWM_DUTY_MIN, PWM_DUTY_MAX, ctx->pwm_wrap_value, 0);
+    uint16_t on_level  = map(duty_cycle, PWM_DUTY_MIN, PWM_DUTY_MAX, ctx->pwm_wrap_value, 0);
     uint16_t off_level = PWM_MAX_TOP;
 
-    uint16_t level_a = forward ? on_level : off_level;
-    uint16_t level_b = forward ? off_level : on_level;
+    ctx->next_duty_level_a = forward ? on_level : off_level;
+    ctx->next_duty_level_b = forward ? off_level : on_level;
 
-    pwm_set_motor_levels(ctx, level_a, level_b);
+    if (ctx->motor_pwm_slice_a == ctx->motor_pwm_slice_b) {
+        pwm_set_duty_level(ctx);
+    }
 }
 
 int hal_motor_get_bemf_buffer(volatile uint16_t** buffer, int* last_write_pos, uint8_t motor_id) {

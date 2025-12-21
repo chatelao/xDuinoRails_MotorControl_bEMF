@@ -138,7 +138,7 @@ void loop() {
   // Map the constrained encoder position to the PWM duty cycle.
   int newSpeed = map(newPosition, ENCODER_MIN_POSITION, ENCODER_MAX_POSITION, 0, MAX_PWM_DUTY_CYCLE);
   if (newSpeed != current_speed) {
-    hal_motor_set_pwm(newSpeed, motorDirection);
+    hal_motor_set_duty(newSpeed, motorDirection);
     current_speed = newSpeed;
     if (newSpeed > 0) {
 #ifdef LED_EDITION
@@ -164,7 +164,7 @@ void loop() {
   if (digitalRead(ENCODER_SWITCH_PIN) == LOW && (millis() - lastButtonPressTime) > DEBOUNCE_DELAY) {
     if (current_speed > 0) {
       // If the motor is currently moving, stop it and reset the encoder position.
-      hal_motor_set_pwm(0, motorDirection);
+      hal_motor_set_duty(0, motorDirection);
       current_speed = 0;
       encoder.setPosition(ENCODER_MIN_POSITION);
 #ifdef LED_EDITION

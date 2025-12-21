@@ -52,6 +52,8 @@ struct MotorContext {
     uint     motor_pwm_slice_a;
     uint     motor_pwm_slice_b;
     uint16_t pwm_wrap_value;
+    uint16_t next_duty_level_a;
+    uint16_t next_duty_level_b;
     uint32_t pwm_frequency;
     int      dma_channel_bemf;
     volatile uint16_t          bemf_ring_buffer[BEMF_RING_BUFFER_SIZE];
@@ -75,7 +77,7 @@ static void dma_irq_handler();
 static int64_t delayed_adc_trigger_callback(alarm_id_t id, void *user_data);
 static void on_pwm_wrap();
 static void pwm_init_common(MotorContext* ctx);
-static void pwm_set_motor_levels(MotorContext* ctx, uint16_t level_a, uint16_t level_b);
+static void pwm_set_duty_level(MotorContext* ctx);
 
 #endif // ARDUINO_ARCH_RP2040
 #endif // MOTOR_CONTROL_HAL_RP2040_INTERNAL_H
