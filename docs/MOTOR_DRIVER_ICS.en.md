@@ -18,8 +18,6 @@ The L293D is a classic H-bridge driver that can control two motors. It requires 
 
 *Note: `X` means "Don't Care".*
 
-**Current Sensing:** The L293D does not have built-in current sensing. An external shunt resistor is required.
-
 **BEMF Sensing:** BEMF sensing is not a built-in feature. It requires external circuitry to disconnect the motor from the driver and measure the voltage across the motor terminals.
 
 ## STMicroelectronics L298N
@@ -56,8 +54,6 @@ The TB6612FNG is a modern and efficient MOSFET-based driver. It has a standby pi
 
 *Note: Speed is controlled by a PWM signal on the corresponding PWM pin (PWMA or PWMB).*
 
-**Current Sensing:** The TB6612FNG does not have a dedicated current sense output. An external shunt resistor is required.
-
 **BEMF Sensing:** BEMF sensing is not a built-in feature. It requires external circuitry.
 
 ## Texas Instruments DRV8833
@@ -74,8 +70,6 @@ The DRV8833 is another popular, modern MOSFET driver, ideal for low-voltage moto
 | LOW | LOW | Coasting |
 
 *Note: Speed is controlled by applying a PWM signal to one of the input pins while the other is held at the appropriate logic level for the desired direction.*
-
-**Current Sensing:** The DRV8833 has current limiting pins (xISEN), but these are often grounded on breakout boards, disabling the feature. To measure current, an external shunt resistor is needed.
 
 **BEMF Sensing:** BEMF sensing is not a built-in feature. It requires external circuitry.
 
@@ -111,8 +105,6 @@ The Cytron MDD10A is a high-current driver that uses a simplified control scheme
 | X | LOW | Brake |
 
 *Note: This driver does not have a pin-controlled coasting mode.*
-
-**Current Sensing:** The MDD10A does not have a dedicated current sense output. An external shunt resistor is required.
 
 **BEMF Sensing:** BEMF sensing is not a built-in feature. It requires external circuitry.
 
