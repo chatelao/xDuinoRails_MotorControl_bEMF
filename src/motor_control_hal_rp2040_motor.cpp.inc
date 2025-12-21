@@ -37,7 +37,13 @@ void hal_motor_init_bemf_adc(uint8_t bemf_a_pin, uint8_t bemf_b_pin, uint8_t mot
     static bool adc_initialized = false;
     if (!adc_initialized) {
         adc_init();
-        adc_fifo_setup(true, true, ADC_FIFO_THRESHOLD, false, false);
+        adc_fifo_setup(
+            true,  // Write ADC readings to FIFO
+            true,  // Enable DMA data request (DREQ)
+            1,     // DREQ asserted when FIFO contains at least 1 sample
+            false, // Disable error bit
+            false  // Don't right-shift samples to 8 bits
+        );
         adc_initialized = true;
     }
 

@@ -37,6 +37,7 @@ struct AlarmUserData {
 
 struct MotorContext {
     bool     is_initialized;
+    bool     skip_measurement;
     uint8_t  pwm_a_pin;
     uint8_t  pwm_b_pin;
     uint8_t  bemf_a_pin;
