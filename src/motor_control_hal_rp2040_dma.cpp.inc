@@ -125,3 +125,32 @@ int hal_motor_get_bemf_buffer(volatile uint16_t** buffer, int* last_write_pos, u
 }
 
 #endif // ARDUINO_ARCH_RP2040
+
+void hal_motor_init_bemf_adc(uint8_t bemf_a_pin, uint8_t bemf_b_pin, uint8_t motor_id) {
+    if (motor_id >= MAX_MOTORS) return;
+    MotorContext* ctx = &g_motors[motor_id];
+    if (!ctx->is_initialized) return;
+
+    ctx->dma_channel_bemf = -1;
+    ctx->bemf_a_pin = bemf_a_pin;
+    ctx->bemf_b_pin = bemf_b_pin;
+
+    bool bemf_enabled = (bemf_a_pin != MOTOR_PIN_UNDEFINED) && (bemf_b_pin != MOTOR_PIN_UNDEFINED);
+    if (!bemf_enabled) return;
+
+    static bool adc_initialized = false;
+    if (!adc_initialized) {
+        adc_init();
+        adc_fifo_setup(
+            true,  // Write ADC readings to FIFO
+            true,  // Enable DMA data request (DREQ)
+            1,     // DREQ asserted when FIFO contains at least 1 sample
+            false, // Disable error bit
+            false  // Don't right-shift samples to 8 bits
+        );
+        adc_initialized = true;
+    }
+
+    adc_gpio_init(ctx->bemf_a_pin);
+    adc_gpio_init(ctx->bemf_b_pin);
+}
