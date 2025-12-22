@@ -1,6 +1,6 @@
 @startuml component_diagram
 
-!theme vibrant
+'!theme vibrant
 
 title Component Diagram - xDuinoRails_MotorControl_bEMF
 

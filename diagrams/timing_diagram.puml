@@ -1,5 +1,5 @@
 @startuml
-!theme vibrant
+'!theme vibrant
 scale 1200 width
 
 robust "CPU" as CPU
@@ -8,7 +8,7 @@ robust "Timer Alarm" as ALARM
 robust "ADC" as ADC
 robust "DMA" as DMA
 robust "DMA IRQ" as DMA_IRQ
-analog "PWM Counter" as PWM_CNT
+robust "PWM Counter" as PWM_CNT
 robust "PWM Compare A" as PWM_COMPA
 binary "Internal PWM (A)" as PWM_INT
 binary "External PWM (A)" as PWM_EXT
