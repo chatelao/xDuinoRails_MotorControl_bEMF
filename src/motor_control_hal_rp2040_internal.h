@@ -61,7 +61,7 @@ extern volatile bool g_adc_busy;
 // Forward Declarations
 // =============================================================================
 static void trigger_adc_measurement(MotorContext* ctx);
-static void dma_start_bemf_capture(MotorContext* ctx);
+static void dma_bemf_start_capture(MotorContext* ctx);
 static void on_pwm_wrap();
 #ifdef USE_IRQ_TRIGGER
     static void pwm_init_irq(MotorContext* ctx);
