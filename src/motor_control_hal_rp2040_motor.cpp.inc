@@ -19,7 +19,7 @@ void hal_motor_init_pwm(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint32_t pwm_frequ
     ctx->pwm_frequency = pwm_frequency;
     ctx->pwm_a_pin = pwm_a_pin;
     ctx->pwm_b_pin = pwm_b_pin;
-    pwm_init_common(ctx);
+    pwm_init(ctx);
 }
 
 void hal_motor_init_bemf_adc(uint8_t bemf_a_pin, uint8_t bemf_b_pin, uint8_t motor_id) {
