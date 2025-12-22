@@ -2,6 +2,15 @@
 
 #if defined(ARDUINO_ARCH_RP2040)
 
+static void adc_init_common() {
+    static bool adc_initialized = false;
+    if (adc_initialized) return;
+
+    adc_init();
+    adc_fifo_setup(true, true, ADC_FIFO_THRESHOLD, false, false);
+    adc_initialized = true;
+}
+
 /**
  * @brief Triggers a BEMF ADC measurement sequence.
  * @param ctx Pointer to the motor's context.

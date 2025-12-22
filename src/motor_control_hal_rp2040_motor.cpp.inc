@@ -35,13 +35,7 @@ void hal_motor_init_bemf_adc(uint8_t bemf_a_pin, uint8_t bemf_b_pin, uint8_t mot
     bool bemf_enabled = (bemf_a_pin != MOTOR_PIN_UNDEFINED) && (bemf_b_pin != MOTOR_PIN_UNDEFINED);
     if (!bemf_enabled) return;
 
-    static bool adc_initialized = false;
-    if (!adc_initialized) {
-        adc_init();
-        adc_fifo_setup(true, true, ADC_FIFO_THRESHOLD, false, false);
-        adc_initialized = true;
-    }
-
+    adc_init_common();
     adc_gpio_init(ctx->bemf_a_pin);
     adc_gpio_init(ctx->bemf_b_pin);
 }
