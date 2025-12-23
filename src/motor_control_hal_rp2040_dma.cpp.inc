@@ -34,8 +34,8 @@ static void dma_bemf_irq_handler() {
         MotorContext* ctx = &g_motors[id];
         if(!ctx->is_initialized || ctx->dma_channel_bemf < 0) continue;
 
-        // Skipt if the interrupt is not for this motor's BEMF DMA channel
-        if(!((dma_hw->ints0 & (1u << ctx->dma_channel_bemf))) continue;
+        // Skip if the interrupt is not for this motor's BEMF DMA channel
+        if (!(dma_hw->ints0 & (1u << ctx->dma_channel_bemf))) continue;
 
         adc_run(false);    // Stop the ADC as the capture is complete
         g_adc_busy = false; // Clear the global ADC busy flag
@@ -63,6 +63,16 @@ static void dma_bemf_irq_handler() {
 // Public HAL Function Implementations
 // =============================================================================
 
+/**
+ * @brief Initializes the DMA for BEMF sensing.
+ *
+ * Configures a DMA channel to continuously transfer ADC conversion results
+ * into a ring buffer. An interrupt is configured to fire when the buffer is
+ * full, which triggers the processing of the collected BEMF data.
+ *
+ * @param callback The function to call with new BEMF data.
+ * @param motor_id The index of the motor to initialize.
+ */
 void hal_motor_init_bemf_dma(hal_bemf_update_callback_t callback, uint8_t motor_id) {
     if (motor_id >= MAX_MOTORS) return;
     MotorContext* ctx = &g_motors[motor_id];
@@ -78,12 +88,12 @@ void hal_motor_init_bemf_dma(hal_bemf_update_callback_t callback, uint8_t motor_
     channel_config_set_read_increment(&dma_config, false);
     channel_config_set_write_increment(&dma_config, true);
     channel_config_set_dreq(&dma_config, DREQ_ADC);
-    // Configure the DMA to wrap the write address back to the start of the buffer.
-    // The second argument to channel_config_set_ring is `true` to enable wrapping.
-    // The third argument specifies the alignment boundary for the wrap, which is the
-    // total size of the buffer in bytes, expressed as a power of 2.
-    // `__builtin_ctz` (count trailing zeros) is a compiler intrinsic that efficiently
-    // calculates log2 of the buffer size, which is what the hardware requires.
+
+    // Configure the DMA to use a ring buffer. This makes the write address wrap around
+    // to the beginning when it reaches the end, which is ideal for continuous sampling.
+    // The ring size is set to the total buffer size in bytes, calculated as the number
+    // of samples multiplied by the size of each sample (uint16_t). The `__builtin_ctz`
+    // intrinsic is a highly efficient way to compute the required log2 of the buffer size.
     channel_config_set_ring(&dma_config, true, __builtin_ctz(BEMF_RING_BUFFER_SIZE * sizeof(uint16_t)));
 
     dma_channel_configure(
@@ -103,7 +113,20 @@ void hal_motor_init_bemf_dma(hal_bemf_update_callback_t callback, uint8_t motor_
     }
 }
 
-
+/**
+ * @brief Retrieves the BEMF ring buffer for diagnostics.
+ *
+ * Provides direct, low-level access to the raw ADC sample buffer for a given
+ * motor. This is primarily intended for debugging, visualization, or advanced
+ * control algorithms that need to inspect the BEMF waveform directly.
+ *
+ * @param[out] buffer Pointer to a volatile uint16_t pointer, which will be
+ *                    set to the address of the internal ring buffer.
+ * @param[out] last_write_pos Pointer to an integer that will be updated with
+ *                            the most recent write position in the buffer.
+ * @param motor_id The index of the motor whose buffer should be retrieved.
+ * @return The total size of the ring buffer in number of samples.
+ */
 int hal_motor_get_bemf_buffer(volatile uint16_t** buffer, int* last_write_pos, uint8_t motor_id) {
     if (motor_id >= MAX_MOTORS) return 0;
     MotorContext* ctx = &g_motors[motor_id];
