@@ -60,6 +60,7 @@ extern volatile bool g_adc_busy;
 // =============================================================================
 // Forward Declarations
 // =============================================================================
+static void adc_init_common();
 static void trigger_adc_measurement(MotorContext* ctx);
 static void dma_bemf_start_capture(MotorContext* ctx);
 static void on_pwm_wrap();
