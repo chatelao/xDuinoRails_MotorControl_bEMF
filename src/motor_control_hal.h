@@ -19,11 +19,25 @@
 #define MAX_MOTORS 2
 #endif
 
-// BEMF ring buffer size, adapted to the PWM frequency
+// --- BEMF Ring Buffer Configuration ---
+// The BEMF ring buffer size is adjusted based on the firmware variant to
+// optimize the ADC sampling period relative to the PWM frequency.
+//
+// - LED_EDITION Variant:
+//   This variant is designed for visual feedback on LEDs and uses a very low
+//   PWM frequency (e.g., 10 Hz). The long PWM OFF period allows for a larger
+//   number of ADC samples (64) to be taken, improving signal averaging without
+//   interfering with the next PWM ON cycle.
+//
+// - Default Variant:
+//   The default configuration uses a high PWM frequency (e.g., 20 kHz) for
+//   efficient motor driving. The PWM OFF period is very short, so the buffer
+//   size is kept small (4 samples) to ensure the ADC capture completes
+//   before the next PWM ON cycle begins.
 #ifdef LED_EDITION
-const uint32_t BEMF_RING_BUFFER_SIZE = 64;
+const uint32_t BEMF_RING_BUFFER_SIZE = 64; // Larger buffer for low-frequency PWM
 #else
-const uint32_t BEMF_RING_BUFFER_SIZE = 4;
+const uint32_t BEMF_RING_BUFFER_SIZE = 4;  // Smaller buffer for high-frequency PWM
 #endif
 
 // Value to indicate that a pin is not used/undefined.
