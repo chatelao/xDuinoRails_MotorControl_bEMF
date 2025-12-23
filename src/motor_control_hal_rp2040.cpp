@@ -15,7 +15,7 @@
 
 #if defined(ARDUINO_ARCH_RP2040)
 
-#include "motor_control_hal_rp2040_internal.h"
+#include "motor_control_hal_rp2040_types_constants.h"
 #include "motor_control_hal_rp2040_adc.cpp.inc"
 #include "motor_control_hal_rp2040_dma.cpp.inc"
 #include "motor_control_hal_rp2040_irq.cpp.inc"
