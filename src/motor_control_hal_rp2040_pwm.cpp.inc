@@ -1,4 +1,4 @@
-#include "motor_control_hal_rp2040_internal.h"
+#include "motor_control_hal_rp2040_types_constants.h"
 
 #if defined(ARDUINO_ARCH_RP2040)
 
