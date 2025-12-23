@@ -15,7 +15,10 @@ static void trigger_adc_measurement(MotorContext* ctx) {
     if (g_adc_busy) return;
     g_adc_busy = true;
 
-    // Configure ADC for round-robin sampling of the two BEMF pins
+    // This setup uses DMA for efficient, CPU-free ADC data capture.
+    // The ADC is configured for round-robin sampling of the two BEMF pins.
+    // As the ADC converts each sample, its hardware DREQ signal triggers the
+    // DMA controller to transfer the result directly into the ring buffer.
     uint8_t adc_ch_a = ctx->bemf_a_pin - MOTOR_ADC_BASE_PIN;
     uint8_t adc_ch_b = ctx->bemf_b_pin - MOTOR_ADC_BASE_PIN;
     adc_select_input(adc_ch_b);
