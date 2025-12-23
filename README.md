@@ -48,19 +48,29 @@ This diagram shows a typical wiring setup using a Seeed Studio XIAO RP2040 and a
                      |        (PWM A) D7  |----->| InA           OutA |==+==|==>| A (-> D7)     |
                      |                    |      +---------+----------+  |  |   +---------------+
                      |                    |                |             |  |
-                     |       (Shunt)  A0  |<---------------/             |  |
+                     |       (Shunt)  A0  |<.............../             |  |
                      |       (bEMF B) A1  |<----------------------------/   |
                      |       (bEMF A) A2  |<-------------------------------/
                      +--------------------+
 ```
 
-### STMicroelectronics STM32G431
+## How it Works
 
-The HAL is implemented for the STM32G431, and has been tested with the Nucleo G431RB development board.
+The RP2040 implementation leverages the RP2040's powerful peripherals to achieve CPU-free motor control.
+
+*   **PWM:** Two PWM slices are used to generate the motor control signals.
+*   **ADC:** The ADC is used to sample the BEMF voltage from the motor.
+*   **DMA:** A DMA channel is used to transfer the ADC readings to a ring buffer in memory.
+*   **PIO:** The Programmable I/O (PIO) is not used in this implementation.
+
+For more details, see the official Raspberry Pi Pico C/C++ SDK documentation:
+* [Section 4.3 PWM](https://datasheets.raspberrypi.com/pico/raspberry-pi-pico-c-sdk.pdf#%5B%7B%22num%22%3A330%2C%22gen%22%3A0%7D%2C%7B%22name%22%3A%22XYZ%22%7D%2C117%2C825%2C0%5D)
+* [Section 4.5 ADC](https://datasheets.raspberrypi.com/pico/raspberry-pi-pico-c-sdk.pdf#%5B%7B%22num%22%3A345%2C%22gen%22%3A0%7D%2C%7B%22name%22%3A%22XYZ%22%7D%2C117%2C825%2C0%5D)
+* [Section 2.5 DMA](https://datasheets.raspberrypi.com/pico/raspberry-pi-pico-c-sdk.pdf#%5B%7B%22num%22%3A129%2C%22gen%22%3A0%7D%2C%7B%22name%22%3A%22XYZ%22%7D%2C117%2C825%2C0%5D)
 
 ## Getting Started
 
-This simple example demonstrates how to get your motor up and running.
+This simple example demonstrates how to get your motor up and running with a Seeed Studio XIAO RP2040.
 
 ```cpp
 #include <Arduino.h>
@@ -125,10 +135,6 @@ Sets the motor's PWM duty cycle and direction. This function updates the PWM har
 ### `int hal_motor_get_bemf_buffer(volatile uint16_t** buffer, int* last_write_pos)`
 
 Retrieves the BEMF ring buffer for diagnostics. This function provides low-level access to the raw ADC sample buffer. It is intended for debugging and visualization, not for real-time control.
-
-### `int hal_motor_get_current_buffer(volatile uint16_t** buffer, int* last_write_pos)`
-
-Retrieves the optional Current Sensing ring buffer for diagnostics. This function works similarly to `hal_motor_get_bemf_buffer` but for current sensing data, if the hardware supports it.
 
 ### `void hal_motor_check_solenoid_position(int ping_pwm_value, int ping_duration_ms, int measurement_delay_us, int* response_a, int* response_b)`
 
