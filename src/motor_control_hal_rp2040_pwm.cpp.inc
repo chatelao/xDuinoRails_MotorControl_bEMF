@@ -44,7 +44,7 @@ static void pwm_set_duty_level(MotorContext* ctx) {
     }
 }
 
-static void pwm_init_common(MotorContext* ctx) {
+static void pwm_init(MotorContext* ctx) {
     ctx->motor_pwm_slice_a = pwm_init_pin(ctx->pwm_a_pin);
     ctx->motor_pwm_slice_b = pwm_init_pin(ctx->pwm_b_pin);
 
