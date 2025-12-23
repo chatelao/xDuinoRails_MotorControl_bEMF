@@ -26,7 +26,7 @@ void __not_in_flash_func(on_pwm_wrap)() {
             pwm_set_gpio_level(ctx->pwm_b_pin, ctx->next_duty_level_b);
         }
 
-        if (ctx->dma_channel_bemf != -1) {
+        if (ctx->bemf_mode == BEMF_MODE_DMA || ctx->bemf_mode == BEMF_MODE_IRQ) {
             trigger_adc_measurement(ctx);
         }
     }
@@ -46,5 +46,30 @@ static void pwm_init_irq(MotorContext* ctx) {
 }
 
 #endif // USE_IRQ_TRIGGER
+
+static void adc_irq_handler() {
+    if (g_current_motor_context == nullptr || g_current_motor_context->bemf_mode != BEMF_MODE_IRQ) {
+        return;
+    }
+
+    MotorContext* ctx = g_current_motor_context;
+    uint32_t sum_A = 0, sum_B = 0;
+    int count = 0;
+    while (adc_fifo_get_level() >= 2) {
+        sum_B += adc_fifo_get();
+        sum_A += adc_fifo_get();
+        count++;
+    }
+
+    if (count > 0) {
+        int measured_bemf = abs((int)(sum_A / count) - (int)(sum_B / count));
+        if (ctx->bemf_callback) {
+            ctx->bemf_callback(measured_bemf);
+        }
+    }
+    adc_run(false);
+    g_adc_busy = false;
+    g_current_motor_context = nullptr;
+}
 
 #endif // ARDUINO_ARCH_RP2040

@@ -7,6 +7,7 @@
 // =============================================================================
 MotorContext g_motors[MAX_MOTORS];
 volatile bool g_adc_busy = false;
+MotorContext* g_current_motor_context = nullptr;
 
 // =============================================================================
 // Public HAL Function Implementations
