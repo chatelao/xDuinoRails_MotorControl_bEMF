@@ -19,12 +19,7 @@
 #define MAX_MOTORS 2
 #endif
 
-// BEMF ring buffer size, adapted to the PWM frequency
-#ifdef LED_EDITION
-const uint32_t BEMF_RING_BUFFER_SIZE = 64;
-#else
 const uint32_t BEMF_RING_BUFFER_SIZE = 4;
-#endif
 
 // Value to indicate that a pin is not used/undefined.
 const uint8_t MOTOR_PIN_UNDEFINED = 0xFF;
