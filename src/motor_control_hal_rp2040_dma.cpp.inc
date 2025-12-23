@@ -34,8 +34,8 @@ static void dma_bemf_irq_handler() {
         MotorContext* ctx = &g_motors[id];
         if(!ctx->is_initialized || ctx->dma_channel_bemf < 0) continue;
 
-        // Skipt if the interrupt is not for this motor's BEMF DMA channel
-        if(!((dma_hw->ints0 & (1u << ctx->dma_channel_bemf))) continue;
+        // Skip if the interrupt is not for this motor's BEMF DMA channel
+        if (!(dma_hw->ints0 & (1u << ctx->dma_channel_bemf))) continue;
 
         adc_run(false);    // Stop the ADC as the capture is complete
         g_adc_busy = false; // Clear the global ADC busy flag

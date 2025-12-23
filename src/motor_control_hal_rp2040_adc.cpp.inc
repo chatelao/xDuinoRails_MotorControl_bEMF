@@ -19,7 +19,7 @@ static void adc_init_common() {
  * actual data transfer is handled by the DMA controller, and the processing is
  * done in the DMA IRQ handler.
  */
-static void trigger_adc_measurement(MotorContext* ctx) {
+static void adc_setup_dma_measurements(MotorContext* ctx) {
     if (!ctx || ctx->skip_measurement) return;
     if (g_adc_busy) return;
     g_adc_busy = true;

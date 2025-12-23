@@ -27,7 +27,7 @@ void __not_in_flash_func(on_pwm_wrap)() {
         }
 
         if (ctx->dma_channel_bemf != -1) {
-            trigger_adc_measurement(ctx);
+            adc_setup_dma_measurements(ctx);
         }
     }
 }
