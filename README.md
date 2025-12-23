@@ -48,6 +48,7 @@ This diagram shows a typical wiring setup using a Seeed Studio XIAO RP2040 and a
                      |        (PWM A) D7  |----->| InA           OutA |==+==|==>| A (-> D7)     |
                      |                    |      +---------+----------+  |  |   +---------------+
                      |                    |                |             |  |
+                     |       (Shunt)  A0  |<.............../             |  |
                      |       (bEMF B) A1  |<----------------------------/   |
                      |       (bEMF A) A2  |<-------------------------------/
                      +--------------------+
