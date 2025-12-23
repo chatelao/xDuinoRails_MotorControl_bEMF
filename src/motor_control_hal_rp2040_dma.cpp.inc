@@ -32,29 +32,28 @@ static void dma_bemf_start_capture(MotorContext* ctx) {
 static void dma_bemf_irq_handler() {
     for (int id = 0; id < MAX_MOTORS; id++) {
         MotorContext* ctx = &g_motors[id];
-        if (!ctx->is_initialized || ctx->dma_channel_bemf < 0) continue;
+        if(!ctx->is_initialized || ctx->dma_channel_bemf < 0) continue;
 
-        // Check if the interrupt is for this motor's BEMF DMA channel
-        if (dma_hw->ints0 & (1u << ctx->dma_channel_bemf)) {
+        // Skipt if the interrupt is not for this motor's BEMF DMA channel
+        if(!((dma_hw->ints0 & (1u << ctx->dma_channel_bemf))) continue;
 
-            adc_run(false);    // Stop the ADC as the capture is complete
-            g_adc_busy = false; // Clear the global ADC busy flag
+        adc_run(false);    // Stop the ADC as the capture is complete
+        g_adc_busy = false; // Clear the global ADC busy flag
 
-            dma_hw->ints0 = 1u << ctx->dma_channel_bemf; // Clear the DMA interrupt flag
+        dma_hw->ints0 = 1u << ctx->dma_channel_bemf; // Clear the DMA interrupt flag
 
-            // Process the captured data by averaging the samples for each phase
-            uint32_t sum_A = 0, sum_B = 0;
-            for (uint i = 0; i < BEMF_RING_BUFFER_SIZE; i += 2) {
-                sum_B += ctx->bemf_ring_buffer[i];
-                sum_A += ctx->bemf_ring_buffer[i + 1];
-            }
+        // Process the captured data by averaging the samples for each phase
+        uint32_t sum_A = 0, sum_B = 0;
+        for (uint i = 0; i < BEMF_RING_BUFFER_SIZE; i += 2) {
+            sum_B += ctx->bemf_ring_buffer[i];
+            sum_A += ctx->bemf_ring_buffer[i + 1];
+        }
 
-            int count = BEMF_RING_BUFFER_SIZE / 2;
-            if (count > 0) {
-                int measured_bemf = abs((int)(sum_A / count) - (int)(sum_B / count));
-                if (ctx->bemf_callback) {
-                    ctx->bemf_callback(measured_bemf);
-                }
+        int count = BEMF_RING_BUFFER_SIZE / 2;
+        if (count > 0) {
+            int measured_bemf = abs((int)(sum_A / count) - (int)(sum_B / count));
+            if (ctx->bemf_callback) {
+                ctx->bemf_callback(measured_bemf);
             }
         }
     }
