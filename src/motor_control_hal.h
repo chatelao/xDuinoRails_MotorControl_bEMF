@@ -1,76 +1,63 @@
 /**
  * @file motor_control_hal.h
- * @brief Hardware Abstraction Layer (HAL) for low-level motor control.
+ * @brief Hardware Abstraction Layer for motor control.
  *
- * This file defines a platform-agnostic interface for hardware-accelerated
- * PWM motor control and BEMF (Back-EMF) measurement. The implementation for
- * a specific microcontroller must be provided separately.
+ * Defines a platform-agnostic interface for PWM motor control and BEMF sensing.
  */
 #ifndef MOTOR_CONTROL_HAL_H
 #define MOTOR_CONTROL_HAL_H
 
 #include <cstdint>
 
-// --- Debugging Flags ---
-
-
-// Maximum number of motors supported by the library
+// Maximum number of motors supported.
 #ifndef MAX_MOTORS
 #define MAX_MOTORS 2
 #endif
 
+// Default size of the BEMF ADC reading ring buffer.
 const uint32_t BEMF_RING_BUFFER_SIZE = 4;
 
-// Value to indicate that a pin is not used/undefined.
+// Represents an undefined/unused pin.
 const uint8_t MOTOR_PIN_UNDEFINED = 0xFF;
 
 /**
- * @brief Callback function pointer type for BEMF updates.
+ * @brief Callback function for BEMF (Back-EMF) updates.
+ * @param raw_bemf_value The raw, unfiltered differential BEMF ADC value.
  *
- * This function is called from an interrupt context whenever a new
- * differential BEMF measurement is available from the hardware. It is the
- * responsibility of the callee to perform any necessary filtering, processing,
- * and control logic adjustments.
- *
- * @param raw_bemf_value The raw, unfiltered differential BEMF value, calculated
- *                       as the absolute difference between the two ADC readings.
+ * Called from an interrupt when a new BEMF measurement is available.
  */
 typedef void (*hal_bemf_update_callback_t)(int raw_bemf_value);
 
 /**
- * @brief Initializes the PWM hardware for a standard 2-pin motor driver.
- *
- * @param pwm_a_pin The GPIO pin for PWM channel A (e.g., forward).
- * @param pwm_b_pin The GPIO pin for PWM channel B (e.g., reverse).
- * @param pwm_frequency The desired PWM frequency in Hz.
- * @param motor_id The index of the motor to control.
+ * @brief Initializes PWM for a 2-pin motor driver.
+ * @param pwm_a_pin GPIO pin for PWM channel A.
+ * @param pwm_b_pin GPIO pin for PWM channel B.
+ * @param pwm_frequency PWM frequency in Hz.
+ * @param motor_id Motor index to control.
  */
 void hal_motor_init_pwm(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint32_t pwm_frequency = 20000, uint8_t motor_id = 0);
 
 /**
- * @brief Initializes the BEMF sensing hardware using DMA.
- *
- * @param bemf_a_pin The ADC pin for motor terminal A.
- * @param bemf_b_pin The ADC pin for motor terminal B.
- * @param callback Function to be called with new BEMF data.
- * @param motor_id The index of the motor to control.
+ * @brief (Deprecated) Initializes ADC and DMA for BEMF sensing.
+ * @param bemf_a_pin ADC pin for motor terminal A.
+ * @param bemf_b_pin ADC pin for motor terminal B.
+ * @param callback Function to call with new BEMF data.
+ * @param motor_id Motor index to control.
  */
 void hal_motor_init_bemf_adc_dma(uint8_t bemf_a_pin, uint8_t bemf_b_pin, hal_bemf_update_callback_t callback, uint8_t motor_id = 0) __attribute__((deprecated("Use hal_motor_init_bemf_adc and hal_motor_init_bemf_dma instead")));
 
 /**
- * @brief Initializes the ADC for BEMF sensing.
- *
- * @param bemf_a_pin The ADC pin for motor terminal A.
- * @param bemf_b_pin The ADC pin for motor terminal B.
- * @param motor_id The index of the motor to control.
+ * @brief Initializes ADC for BEMF sensing.
+ * @param bemf_a_pin ADC pin for motor terminal A.
+ * @param bemf_b_pin ADC pin for motor terminal B.
+ * @param motor_id Motor index to control.
  */
 void hal_motor_init_bemf_adc(uint8_t bemf_a_pin, uint8_t bemf_b_pin, uint8_t motor_id = 0);
 
 /**
- * @brief Initializes the DMA for BEMF sensing.
- *
- * @param callback Function to be called with new BEMF data.
- * @param motor_id The index of the motor to control.
+ * @brief Initializes DMA for BEMF sensing.
+ * @param callback Function to call with new BEMF data.
+ * @param motor_id Motor index to control.
  */
 void hal_motor_init_bemf_dma(hal_bemf_update_callback_t callback, uint8_t motor_id = 0);
 
@@ -97,35 +84,26 @@ void hal_motor_set_duty(int duty_cycle, bool forward, uint8_t motor_id = 0);
 
 /**
  * @brief Retrieves the BEMF ring buffer for diagnostics.
+ * @param[out] buffer Pointer to the internal ring buffer.
+ * @param[out] last_write_pos Last written position in the buffer.
+ * @param motor_id Motor index to control.
+ * @return Total size of the ring buffer.
  *
- * This function provides low-level access to the raw ADC sample buffer.
- * It is intended for debugging and visualization, not for real-time control.
- * The buffer contains interleaved samples from ADC A and ADC B.
- *
- * @param[out] buffer A pointer to a uint16_t pointer that will be set to the
- *                    address of the internal ring buffer.
- * @param[out] last_write_pos A pointer to an integer that will be set to the
- *                            last written position in the buffer.
- * @param motor_id The index of the motor to control (0 to MAX_MOTORS-1). Defaults to 0.
- * @return The total size of the ring buffer (number of samples).
+ * Provides low-level access to the raw ADC sample buffer for debugging.
+ * Contains interleaved samples from ADC A and B.
  */
 int hal_motor_get_bemf_buffer(volatile uint16_t** buffer, int* last_write_pos, uint8_t motor_id = 0);
 
 /**
- * @brief Checks the solenoid/motor position by pinging both directions and measuring the response.
+ * @brief Pings a solenoid/motor and measures the BEMF response.
+ * @param ping_pwm_value PWM duty cycle for the ping pulse.
+ * @param ping_duration_ms Duration of the ping pulse in ms.
+ * @param measurement_delay_us Delay after ping before measuring response.
+ * @param[out] response_a Measured response for the forward/A direction.
+ * @param[out] response_b Measured response for the reverse/B direction.
+ * @param motor_id Motor index to control.
  *
- * This function performs a diagnostic test:
- * 1. Pings the "forward" direction (PWM A).
- * 2. Measures the BEMF/Response immediately after switch-off.
- * 3. Pings the "reverse" direction (PWM B).
- * 4. Measures the BEMF/Response immediately after switch-off.
- *
- * @param ping_pwm_value The PWM duty cycle (0-255) for the ping pulse.
- * @param ping_duration_ms The duration of the ping pulse in milliseconds.
- * @param measurement_delay_us The delay after switching off before measuring the response.
- * @param[out] response_a The measured response for the forward/A direction.
- * @param[out] response_b The measured response for the reverse/B direction.
- * @param motor_id The index of the motor to control (0 to MAX_MOTORS-1). Defaults to 0.
+ * Pings forward, measures response, pings reverse, measures response.
  */
 void hal_motor_check_solenoid_position(int ping_pwm_value, int ping_duration_ms, int measurement_delay_us, int* response_a, int* response_b, uint8_t motor_id = 0);
 
