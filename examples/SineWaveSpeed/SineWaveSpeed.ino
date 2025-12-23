@@ -81,10 +81,15 @@ void setup() {
     #endif
 
     #if defined(ARDUINO_SEEED_XIAO_RP2040) && !defined(LED_EDITION)
-        // Initialize the onboard LEDs as a second "motor" (parallel indication)
-        // The onboard LEDs also need a slow frequency to be visible.
+        // --- Standard Build Specific ---
+        // In the standard build, we initialize a second motor instance on the
+        // onboard LEDs. This provides a visual representation of the main
+        // motor's behavior, which is especially useful when a physical motor
+        // isn't connected.
+        // A very slow PWM frequency (10 Hz) is used for the LEDs to make the
+        // fading effect visible to the human eye.
         hal_motor_init_pwm(LED_PWM_A_PIN, LED_PWM_B_PIN, 10, 1);
-        // No BEMF for the LEDs
+        // BEMF sensing is not applicable to the LEDs, so it's skipped.
     #endif
 
 #if defined(ARDUINO_SEEED_XIAO_RP2040)
@@ -121,7 +126,9 @@ void loop() {
   hal_motor_set_duty(pwmValue, motorDirection);
 
 #if defined(ARDUINO_SEEED_XIAO_RP2040) && !defined(LED_EDITION)
-  // Drive the parallel LED motor
+  // --- Standard Build Specific ---
+  // In the standard build, we also drive the second motor instance (the
+  // onboard LEDs) to mirror the state of the main motor.
   hal_motor_set_duty(pwmValue, motorDirection, 1);
 #endif
 
