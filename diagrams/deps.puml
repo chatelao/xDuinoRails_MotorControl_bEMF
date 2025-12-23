@@ -1,7 +1,7 @@
 @startuml deps
-!theme vibrant
+'!theme vibrant
 
-title Source Code Dependency Graph
+title Source Code Dependency Graph (with Function-Level Detail)
 
 skinparam componentStyle uml2
 skinparam rectangle {
@@ -10,7 +10,9 @@ skinparam rectangle {
     BackgroundColor<<diagnostics>> LightGoldenRodYellow
     BackgroundColor<<placeholder>> LightGray
     BackgroundColor<<external>> Wheat
+    BackgroundColor<<irq>> LightSalmon
 }
+skinparam ArrowColor #666666
 
 package "Arduino Framework" <<external>> {
     [Arduino.h]
@@ -31,42 +33,83 @@ package "Diagnostics" <<diagnostics>> {
     [motor_control_diagnostics.cpp]
 }
 
-package "RP2040 Implementation" <<implementation>> {
-    [motor_control_hal_rp2040.cpp]
-    [motor_control_hal_rp2040_internal.h]
-    [motor_control_hal_rp2040_motor.cpp.inc]
-    [motor_control_hal_rp2040_pwm.cpp.inc]
-    [motor_control_hal_rp2040_adc.cpp.inc]
+package "RP2040 Implementation" {
+    package "motor" <<implementation>> {
+        [hal_motor_init_pwm()]
+        [hal_motor_set_duty()]
+        [hal_motor_init_bemf_adc()]
+        [hal_motor_init_bemf_dma()]
+        [hal_motor_get_bemf_buffer()]
+    }
+
+    package "pwm" <<implementation>> {
+        [pwm_init_common()]
+        [pwm_init_pin()]
+        [pwm_set_frequency()]
+        [pwm_set_duty_level()]
+    }
+
+    package "adc" <<implementation>> {
+        [trigger_adc_measurement()]
+    }
+
+    package "dma" <<implementation>> {
+        [dma_bemf_start_capture()]
+        [dma_bemf_irq_handler()] <<irq>>
+    }
+
+    package "irq" <<implementation>> {
+        [pwm_init_irq()]
+        [on_pwm_wrap()] <<irq>>
+    }
 }
 
-package "Placeholder" <<placeholder>> {
-    [main.cpp]
-}
+' --- Relationships ---
 
-
-' Relationships
-[main.cpp] --> [Arduino.h]
-
-[motor_control_diagnostics.cpp] --> [motor_control_hal.h] : "#include"
-
+' Public API to internal implementation
+[motor_control_hal.h] --> [hal_motor_init_pwm()]
+[motor_control_hal.h] --> [hal_motor_set_duty()]
+[motor_control_hal.h] --> [hal_motor_init_bemf_adc()]
+[motor_control_hal.h] --> [hal_motor_init_bemf_dma()]
+[motor_control_hal.h] --> [hal_motor_get_bemf_buffer()]
 [motor_control_hal.h] ..> [Arduino.h] : "#include <cstdint>"
 
-[motor_control_hal_rp2040.cpp] --> [motor_control_hal.h] : "#include"
-[motor_control_hal_rp2040.cpp] --> [motor_control_hal_rp2040_internal.h] : "#include"
-[motor_control_hal_rp2040.cpp] ..> [motor_control_hal_rp2040_motor.cpp.inc] : "#include"
-[motor_control_hal_rp2040.cpp] ..> [motor_control_hal_rp2040_pwm.cpp.inc] : "#include"
-[motor_control_hal_rp2040.cpp] ..> [motor_control_hal_rp2040_adc.cpp.inc] : "#include"
+' Motor module dependencies
+[hal_motor_init_pwm()] --> [pwm_init_common()] : "calls"
+[hal_motor_set_duty()] --> [pwm_set_duty_level()] : "calls"
+[hal_motor_init_bemf_adc()] --> [hardware/adc.h] : "calls adc_*"
+[hal_motor_get_bemf_buffer()] --> [hardware/dma.h] : "reads dma_hw"
+
+' PWM module dependencies
+[pwm_init_common()] --> [pwm_init_pin()] : "calls"
+[pwm_init_common()] --> [pwm_set_frequency()] : "calls"
+[pwm_init_common()] --> [pwm_init_irq()] : "calls"
+[pwm_init_common()] --> [hardware/pwm.h] : "calls pwm_*"
+[pwm_init_pin()] --> [hardware/pwm.h] : "calls pwm_*"
+[pwm_set_frequency()] --> [hardware/pwm.h] : "calls pwm_*"
+[pwm_set_duty_level()] --> [hardware/pwm.h] : "calls pwm_*"
 
 
-[motor_control_hal_rp2040_internal.h] --> [motor_control_hal.h] : "#include"
-[motor_control_hal_rp2040_internal.h] --> [Arduino.h] : "#include"
-[motor_control_hal_rp2040_internal.h] --> [hardware/pwm.h] : "#include"
-[motor_control_hal_rp2040_internal.h] --> [hardware/dma.h] : "#include"
-[motor_control_hal_rp2040_internal.h] --> [hardware/adc.h] : "#include"
-[motor_control_hal_rp2040_internal.h] --> [hardware/irq.h] : "#include"
+' IRQ module dependencies
+[pwm_init_irq()] --> [hardware/irq.h] : "calls irq_set_*"
+[on_pwm_wrap()] --> [trigger_adc_measurement()] : "calls"
+[on_pwm_wrap()] --> [hardware/pwm.h] : "calls pwm_*"
+[hardware/pwm.h] ..> [on_pwm_wrap()] : "triggers"
 
-[motor_control_hal_rp2040_motor.cpp.inc] --> [motor_control_hal_rp2040_internal.h] : "#include"
-[motor_control_hal_rp2040_pwm.cpp.inc] --> [motor_control_hal_rp2040_internal.h] : "#include"
-[motor_control_hal_rp2040_adc.cpp.inc] --> [motor_control_hal_rp2040_internal.h] : "#include"
+' ADC module dependencies
+[trigger_adc_measurement()] --> [dma_bemf_start_capture()] : "calls"
+[trigger_adc_measurement()] --> [hardware/adc.h] : "calls adc_*"
+
+' DMA module dependencies
+[hal_motor_init_bemf_dma()] --> [hardware/dma.h] : "calls dma_*"
+[hal_motor_init_bemf_dma()] --> [hardware/irq.h] : "sets handler to"
+[hardware/irq.h] --> [dma_bemf_irq_handler()]
+[dma_bemf_start_capture()] --> [hardware/dma.h] : "calls dma_*"
+[dma_bemf_irq_handler()] --> [motor_control_hal.h] : "invokes callback"
+[hardware/dma.h] ..> [dma_bemf_irq_handler()] : "triggers"
+
+
+' Diagnostics dependencies
+[motor_control_diagnostics.cpp] --> [motor_control_hal.h]
 
 @enduml

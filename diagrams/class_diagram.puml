@@ -1,6 +1,6 @@
 @startuml class_diagram
 
-!theme vibrant
+'!theme vibrant
 
 title Structural Diagram - Motor Control HAL
 
