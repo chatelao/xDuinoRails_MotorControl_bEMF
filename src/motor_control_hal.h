@@ -62,10 +62,23 @@ void hal_motor_init_bemf_adc(uint8_t bemf_a_pin, uint8_t bemf_b_pin, uint8_t mot
 void hal_motor_init_bemf_dma(hal_bemf_update_callback_t callback, uint8_t motor_id = 0);
 
 /**
- * @brief Sets motor PWM duty cycle and direction.
- * @param duty_cycle PWM duty cycle (e.g., 0-255).
- * @param forward True for forward, false for reverse.
- * @param motor_id Motor index to control.
+ * @brief Initializes BEMF sensing using ADC interrupts.
+ *
+ * @param callback Function to be called with new BEMF data.
+ * @param motor_id The index of the motor to control.
+ */
+void hal_motor_init_bemf_irq(hal_bemf_update_callback_t callback, uint8_t motor_id = 0);
+
+/**
+ * @brief Sets the motor's PWM duty cycle and direction.
+ *
+ * This function updates the PWM hardware with the new duty cycle. It should
+ * be called periodically from the main application loop to reflect the latest
+ * output from the motor control algorithm (e.g., a PI controller).
+ *
+ * @param duty_cycle The desired duty cycle, typically in a range from 0 to 255.
+ * @param forward The desired motor direction (true for forward, false for reverse).
+ * @param motor_id The index of the motor to control (0 to MAX_MOTORS-1). Defaults to 0.
  */
 void hal_motor_set_duty(int duty_cycle, bool forward, uint8_t motor_id = 0);
 
@@ -93,5 +106,18 @@ int hal_motor_get_bemf_buffer(volatile uint16_t** buffer, int* last_write_pos, u
  * Pings forward, measures response, pings reverse, measures response.
  */
 void hal_motor_check_solenoid_position(int ping_pwm_value, int ping_duration_ms, int measurement_delay_us, int* response_a, int* response_b, uint8_t motor_id = 0);
+
+#if !defined(ARDUINO_ARCH_RP2040)
+
+// Generic, empty implementations for non-RP2040 architectures
+void hal_motor_init_pwm(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint32_t pwm_frequency, uint8_t motor_id) {}
+void hal_motor_init_bemf_adc(uint8_t bemf_a_pin, uint8_t bemf_b_pin, uint8_t motor_id) {}
+void hal_motor_init_bemf_dma(hal_bemf_update_callback_t callback, uint8_t motor_id) {}
+void hal_motor_init_bemf_irq(hal_bemf_update_callback_t callback, uint8_t motor_id) {}
+void hal_motor_set_duty(int duty_cycle, bool forward, uint8_t motor_id) {}
+int hal_motor_get_bemf_buffer(volatile uint16_t** buffer, int* last_write_pos, uint8_t motor_id) { return 0; }
+void hal_motor_check_solenoid_position(int ping_pwm_value, int ping_duration_ms, int measurement_delay_us, int* response_a, int* response_b, uint8_t motor_id) {}
+
+#endif // !defined(ARDUINO_ARCH_RP2040)
 
 #endif // MOTOR_CONTROL_HAL_H

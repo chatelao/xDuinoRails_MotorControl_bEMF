@@ -23,6 +23,7 @@ static void trigger_adc_measurement(MotorContext* ctx) {
     if (!ctx || ctx->skip_measurement) return;
     if (g_adc_busy) return;
     g_adc_busy = true;
+    g_current_motor_context = ctx;
 
     // This setup uses DMA for efficient, CPU-free ADC data capture.
     // The ADC is configured for round-robin sampling of the two BEMF pins.
@@ -35,9 +36,25 @@ static void trigger_adc_measurement(MotorContext* ctx) {
     adc_fifo_drain(); // Ensure FIFO is clear before starting a new capture
 
     // Start the DMA transfer which will be paced by the ADC's DREQ
-    dma_bemf_start_capture(ctx);
+    if (ctx->bemf_mode == BEMF_MODE_DMA) {
+        dma_bemf_start_capture(ctx);
+    }
 
     adc_run(true); // Enable the ADC to start the measurement
+}
+
+void hal_motor_init_bemf_irq(hal_bemf_update_callback_t callback, uint8_t motor_id) {
+    if (motor_id >= MAX_MOTORS) return;
+    MotorContext* ctx = &g_motors[motor_id];
+    if (!ctx->is_initialized) return;
+
+    ctx->bemf_callback = callback;
+    ctx->bemf_mode = BEMF_MODE_IRQ;
+
+    // Enable ADC interrupt
+    irq_set_exclusive_handler(ADC_IRQ_FIFO, adc_irq_handler);
+    irq_set_enabled(ADC_IRQ_FIFO, true);
+    adc_irq_set_enabled(true);
 }
 
 #endif // ARDUINO_ARCH_RP2040

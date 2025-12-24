@@ -79,6 +79,7 @@ void hal_motor_init_bemf_dma(hal_bemf_update_callback_t callback, uint8_t motor_
     if (!ctx->is_initialized) return;
 
     ctx->bemf_callback = callback;
+    ctx->bemf_mode = BEMF_MODE_DMA;
     bool bemf_enabled = (ctx->bemf_a_pin != MOTOR_PIN_UNDEFINED) && (ctx->bemf_b_pin != MOTOR_PIN_UNDEFINED);
     if (!bemf_enabled) return;
 

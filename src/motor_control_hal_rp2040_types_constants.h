@@ -35,8 +35,15 @@ struct AlarmUserData {
     MotorContext* ctx;
 };
 
+typedef enum {
+    BEMF_MODE_NONE,
+    BEMF_MODE_DMA,
+    BEMF_MODE_IRQ
+} BEMFMode;
+
 struct MotorContext {
     bool     is_initialized;
+    BEMFMode bemf_mode;
     bool     skip_measurement;
     uint8_t  pwm_a_pin;
     uint8_t  pwm_b_pin;
@@ -56,6 +63,7 @@ struct MotorContext {
 
 extern MotorContext g_motors[MAX_MOTORS];
 extern volatile bool g_adc_busy;
+extern MotorContext* g_current_motor_context;
 
 // =============================================================================
 // Forward Declarations
@@ -63,6 +71,7 @@ extern volatile bool g_adc_busy;
 static void adc_init_common();
 static void trigger_adc_measurement(MotorContext* ctx);
 static void dma_bemf_start_capture(MotorContext* ctx);
+static void adc_irq_handler();
 static void on_pwm_wrap();
 #ifdef USE_IRQ_TRIGGER
     static void pwm_init_irq(MotorContext* ctx);
