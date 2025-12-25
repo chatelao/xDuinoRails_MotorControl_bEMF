@@ -89,10 +89,15 @@ jobs:
           name: firmware-seeed_xiao_rp2040-debugPWM
           path: .pio/build/seeed_xiao_rp2040
 
+      - name: Install Renode Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git automake cmake autoconf libtool g++ coreutils policykit-1 libgtk-3-dev uml-utilities gtk-sharp3 python3 python3-pip
+          python3 -m pip install -r test/requirements.txt
+
       - name: Install Renode
         run: |
           wget https://github.com/renode/renode/releases/download/v1.15.0/renode_1.15.0_amd64.deb -O renode.deb
-          sudo apt-get update
           sudo apt-get install -y ./renode.deb
 
       - name: Run Renode Simulation
