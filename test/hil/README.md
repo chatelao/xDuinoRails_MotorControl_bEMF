@@ -21,7 +21,7 @@ Connect the two XIAO RP2040 boards as follows:
 | DUT Pin | Logic Analyzer Pin | Description                  |
 | :------ | :----------------- | :--------------------------- |
 | `GND`   | `GND`              | Common Ground                |
-| `D8`    | `D0`               | PWM Signal from DUT          |
+| `D8`    | `D8`               | PWM Signal from DUT          |
 | `D0`    | `D1`               | Synchronization Pulse from DUT |
 
 ---
