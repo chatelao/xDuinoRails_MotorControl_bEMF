@@ -1,6 +1,6 @@
 # Hardware-in-the-Loop (HIL) Test Concept
 
-This document outlines a concept for a Hardware-in-the-Loop (HIL) test using two XIAO RP2040 boards.
+This document outlines a concept for a Hardware-in-the-Loop (HIL) test using two XIAO RP2040 boards. This guide has been updated with scripts to automate the setup and execution process.
 
 ## Overview
 
@@ -14,28 +14,7 @@ The HIL test setup involves two XIAO RP2040 boards:
 *   USB-C cables
 *   Jumper wires
 
----
-
-## Step-by-Step Implementation Guide
-
-### 1. Prepare the Logic Analyzer
-
-1.  **Download Firmware**:
-    *   Download the latest `.uf2` file from the [pico-logic-analyzer releases page](https://github.com/pico-coder/sigrok-pico/releases).
-2.  **Flash the Board**:
-    *   Connect a XIAO RP2040 board to your computer while holding the "Boot" button.
-    *   The board will mount as a USB mass storage device.
-    *   Drag and drop the downloaded `.uf2` file onto the device.
-
-### 2. Prepare the Device Under Test (DUT)
-
-1.  **Firmware**: `examples/debugPWM/debugPWM.ino`
-2.  **Flash the Board**:
-    *   Open the project in PlatformIO.
-    *   Connect the second XIAO RP2040 board to your computer.
-    *   Build and upload the `debugPWM` example to this board.
-
-### 3. Wire the Boards
+## Wiring the Boards
 
 Connect the two XIAO RP2040 boards as follows:
 
@@ -45,31 +24,42 @@ Connect the two XIAO RP2040 boards as follows:
 | `D8`    | `D0`               | PWM Signal from DUT          |
 | `D0`    | `D1`               | Synchronization Pulse from DUT |
 
-### 4. Execute the Test
-
-1.  **Connect Logic Analyzer**:
-    *   Connect the XIAO RP2040 running the `pico-logic-analyzer` firmware to your computer.
-2.  **Start Capture**:
-    *   Open a terminal and run the following `sigrok-cli` command:
-
-      ```bash
-      sigrok-cli -d raspberrypi-pico --continuous -c samplerate=1m -P pwm,pulse -C D0,D1 -o capture.sr
-      ```
-    *   **Command Breakdown**:
-        *   `-d raspberrypi-pico`: Specifies the logic analyzer device.
-        *   `--continuous`: Captures data continuously.
-        *   `-c samplerate=1m`: Sets the sample rate to 1 MHz.
-        *   `-P pwm,pulse`: Assigns protocol decoders for PWM and pulse signals.
-        *   `-C D0,D1`: Specifies the channels to capture (D0 for PWM, D1 for pulse).
-        *   `-o capture.sr`: Saves the capture to a file named `capture.sr`.
-
-3.  **Trigger the DUT**:
-    *   While the capture is running, press the "Reset" button on the DUT. This will restart the `debugPWM` firmware and generate the test signals.
-4.  **Stop Capture**:
-    *   Stop the `sigrok-cli` capture by pressing `Ctrl+C` in the terminal.
-5.  **Analyze Data**:
-    *   You can now analyze the captured data in `capture.sr` using [PulseView](https://sigrok.org/wiki/PulseView), the GUI for sigrok.
-
 ---
 
-This setup allows for the automated testing and verification of the PWM signal generation in the `debugPWM.ino` firmware.
+## Automated Test Execution Guide
+
+This process is automated with four scripts. Run them in the following order from your terminal.
+
+### 1. Install Dependencies
+
+This script installs `sigrok-cli` and other necessary tools on a Debian-based Linux system (like Ubuntu).
+
+```bash
+./test/hil/install_deps.sh
+```
+
+### 2. Setup the Logic Analyzer
+
+This script will guide you through the manual process of downloading and flashing the `pico-logic-analyzer` firmware onto one of your XIAO boards.
+
+```bash
+./test/hil/setup_logic_analyzer.sh
+```
+
+### 3. Setup the Device Under Test (DUT)
+
+This script will compile and upload the `debugPWM` test firmware onto your second XIAO board using PlatformIO.
+
+```bash
+./test/hil/setup_dut.sh
+```
+
+### 4. Run the Test and Analyze Results
+
+This script will capture the PWM signals from the DUT for 10 seconds and generate a text-based report (`report.txt`) from the captured data.
+
+```bash
+./test/hil/run_analysis.sh
+```
+
+After running the final script, you can inspect `report.txt` for a summary of the decoded signals or open `capture.sr` in a GUI tool like [PulseView](https://sigrok.org/wiki/PulseView) for a detailed graphical analysis.
