@@ -35,7 +35,7 @@ This process is automated with four scripts. Run them in the following order fro
 This script installs `sigrok-cli` and other necessary tools on a Debian-based Linux system (like Ubuntu).
 
 ```bash
-./test/hil/install_deps.sh
+./test/hil/01_install_deps.sh
 ```
 
 ### 2. Setup the Logic Analyzer
@@ -43,7 +43,7 @@ This script installs `sigrok-cli` and other necessary tools on a Debian-based Li
 This script will guide you through the manual process of downloading and flashing the `pico-logic-analyzer` firmware onto one of your XIAO boards.
 
 ```bash
-./test/hil/setup_logic_analyzer.sh
+./test/hil/02_setup_logic_analyzer.sh
 ```
 
 ### 3. Setup the Device Under Test (DUT)
@@ -51,7 +51,7 @@ This script will guide you through the manual process of downloading and flashin
 This script will compile and upload the `debugPWM` test firmware onto your second XIAO board using PlatformIO.
 
 ```bash
-./test/hil/setup_dut.sh
+./test/hil/03_setup_dut.sh
 ```
 
 ### 4. Run the Test and Analyze Results
@@ -59,7 +59,7 @@ This script will compile and upload the `debugPWM` test firmware onto your secon
 This script will capture the PWM signals from the DUT for 10 seconds and generate a text-based report (`report.txt`) from the captured data.
 
 ```bash
-./test/hil/run_analysis.sh
+./test/hil/04_run_analysis.sh
 ```
 
 After running the final script, you can inspect `report.txt` for a summary of the decoded signals or open `capture.sr` in a GUI tool like [PulseView](https://sigrok.org/wiki/PulseView) for a detailed graphical analysis.
