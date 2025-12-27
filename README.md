@@ -116,20 +116,28 @@ You can find this and other examples in the `examples` folder of this repository
 
 ## API Reference
 
-### `void hal_motor_init_pwm(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint32_t pwm_frequency = 20000, uint8_t motor_id = 0)`
-
+**`hal_motor_init_pwm`**
+```cpp
+void hal_motor_init_pwm(uint8_t pwm_a_pin, uint8_t pwm_b_pin, uint32_t pwm_frequency = 20000, uint8_t motor_id = 0)
+```
 Initializes the PWM hardware for a standard 2-pin motor driver.
 
-### `void hal_motor_init_bemf_adc(uint8_t bemf_a_pin, uint8_t bemf_b_pin, uint8_t motor_id = 0)`
-
+**`hal_motor_init_bemf_adc`**
+```cpp
+void hal_motor_init_bemf_adc(uint8_t bemf_a_pin, uint8_t bemf_b_pin, uint8_t motor_id = 0)
+```
 Initializes the ADC for BEMF sensing.
 
-### `void hal_motor_init_bemf_dma(hal_bemf_update_callback_t callback, uint8_t motor_id = 0)`
-
+**`hal_motor_init_bemf_dma`**
+```cpp
+void hal_motor_init_bemf_dma(hal_bemf_update_callback_t callback, uint8_t motor_id = 0)
+```
 Initializes the DMA for BEMF sensing.
 
-### `void hal_motor_init_bemf_timer_adc(hal_bemf_update_callback_t callback, uint32_t measurement_delay_us = 1500, uint8_t samples_to_take = 3, uint8_t motor_id = 0)`
-
+**`hal_motor_init_bemf_timer_adc`**
+```cpp
+void hal_motor_init_bemf_timer_adc(hal_bemf_update_callback_t callback, uint32_t measurement_delay_us = 1500, uint8_t samples_to_take = 3, uint8_t motor_id = 0)
+```
 Initializes BEMF sensing using a hardware timer to trigger ADC measurements. This method is useful when you need to precisely time the BEMF measurement relative to the PWM signal, for example, to avoid measurement during periods of high noise.
 
 -   `callback`: The function to be called with new BEMF data.
@@ -137,20 +145,25 @@ Initializes BEMF sensing using a hardware timer to trigger ADC measurements. Thi
 -   `samples_to_take`: The number of ADC samples to take per cutout.
 -   `motor_id`: The index of the motor to control.
 
-### `void hal_motor_set_duty(int duty_cycle, bool forward, uint8_t motor_id = 0)`
-
+**`hal_motor_set_duty`**
+```cpp
+void hal_motor_set_duty(int duty_cycle, bool forward, uint8_t motor_id = 0)
+```
 Sets the motor's PWM duty cycle and direction. This function updates the PWM hardware with the new duty cycle. It should be called periodically from the main application loop to reflect the latest output from the motor control algorithm (e.g., a PI controller).
 
-### `int hal_motor_get_bemf_buffer(volatile uint16_t** buffer, int* last_write_pos)`
-
+**`hal_motor_get_bemf_buffer`**
+```cpp
+int hal_motor_get_bemf_buffer(volatile uint16_t** buffer, int* last_write_pos)
+```
 Retrieves the BEMF ring buffer for diagnostics. This function provides low-level access to the raw ADC sample buffer. It is intended for debugging and visualization, not for real-time control.
 
-### `void hal_motor_check_solenoid_position(int ping_pwm_value, int ping_duration_ms, int measurement_delay_us, int* response_a, int* response_b)`
-
+**`hal_motor_check_solenoid_position`**
+```cpp
+void hal_motor_check_solenoid_position(int ping_pwm_value, int ping_duration_ms, int measurement_delay_us, int* response_a, int* response_b)
+```
 Performs a diagnostic test to check the motor/solenoid position. It pings the motor in both directions and measures the BEMF response, allowing for basic position estimation or connection verification.
 
-### `hal_bemf_update_callback_t`
-
+**`hal_bemf_update_callback_t`**
 This is a `typedef` for a function pointer that is used to handle BEMF updates. A function matching this signature must be passed to `hal_motor_init`. This callback is executed from an interrupt context whenever a new differential BEMF measurement is available from the hardware.
 
 **Signature:**
