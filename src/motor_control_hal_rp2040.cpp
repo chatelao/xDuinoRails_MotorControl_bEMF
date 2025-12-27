@@ -17,6 +17,7 @@
 
 #include "motor_control_hal_rp2040_types_constants.h"
 #include "motor_control_hal_rp2040_adc.cpp.inc"
+#include "motor_control_hal_rp2040_timer_adc.cpp.inc"
 #include "motor_control_hal_rp2040_dma.cpp.inc"
 #include "motor_control_hal_rp2040_irq.cpp.inc"
 #include "motor_control_hal_rp2040_pwm.cpp.inc"
