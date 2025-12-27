@@ -78,6 +78,14 @@ jobs:
   simulate:
     runs-on: ubuntu-latest
     needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        # For now, only the debugPWM example has a corresponding simulation script.
+        # This matrix can be expanded as more simulation tests are created.
+        include:
+          - platform: seeed_xiao_rp2040
+            example: debugPWM
 
     steps:
       - name: Checkout repository
@@ -86,8 +94,8 @@ jobs:
       - name: Download firmware artifact
         uses: actions/download-artifact@v4
         with:
-          name: firmware-seeed_xiao_rp2040-debugPWM
-          path: .pio/build/seeed_xiao_rp2040
+          name: firmware-${{ matrix.platform }}-${{ matrix.example }}
+          path: .pio/build/${{ matrix.platform }}
 
       - name: Install Renode
         run: |
@@ -97,23 +105,36 @@ jobs:
           chmod +x renode_portable/renode
 
       - name: Run Renode Simulation
-        run: ./renode_portable/renode --disable-xwt -e 'i @test/Sim/rp2040_debugPWM.resc'
+        run: ./renode_portable/renode --disable-xwt -e 'i @test/Sim/rp2040_${{ matrix.example }}.resc'
+
+      - name: Rename VCD trace file
+        id: rename_vcd
+        run: |
+          VCD_FILENAME="trace-${{ matrix.platform }}-${{ matrix.example }}.vcd"
+          mv simulation.vcd "${VCD_FILENAME}"
+          echo "vcd_filename=${VCD_FILENAME}" >> $GITHUB_OUTPUT
+
+      - name: Upload VCD trace as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vcd-trace-${{ matrix.platform }}-${{ matrix.example }}
+          path: ${{ steps.rename_vcd.outputs.vcd_filename }}
 
   release:
     runs-on: ubuntu-latest
     if: github.event_name == 'release'
-    needs: [build]
+    needs: [build, simulate]
     permissions:
       contents: write
 
     steps:
-      - name: Download all firmware artifacts
+      - name: Download all build artifacts
         uses: actions/download-artifact@v4
         with:
-          path: firmware
+          path: release-assets
 
       - name: Upload Release Assets
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            firmware/*/*
+            release-assets/*/*
