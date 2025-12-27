@@ -1,0 +1,24 @@
+# Renode Automation Script
+#
+# This script runs a simulation of the debugPWM example on a Raspberry Pi RP2040
+# microcontroller. It sets up the machine, loads the compiled firmware, and then
+# hands over control to a Robot Framework script for test execution.
+#
+# For more information on Renode, see the official documentation:
+# https://renode.readthedocs.io/
+
+# Create a new, empty machine instance for the simulation.
+mach create
+
+# Load the platform description for the Raspberry Pi RP2040. This defines the
+# peripherals, memory map, and other hardware features of the microcontroller.
+machine LoadPlatformDescription @platforms/cpus/raspberry_pi_rp2040.repl
+
+# Enable logging for all GPIO pin access. This is essential for the test, as it
+# allows the Robot Framework to monitor the state of the pulse pin and verify
+# that the PWM interrupt is firing correctly.
+sysbus.gpio.gpio LogGPIOAccess true
+
+# Load and execute the Robot Framework test suite. This script will control the
+# simulation, check for specific log messages, and determine if the test passes.
+script @"${CURDIR}/debugPWM.robot"

@@ -29,6 +29,8 @@ jobs:
             example: RotaryEncoderWithBEMF
           - platform: seeed_xiao_rp2040_led
             example: MotorSerialDebug
+          - platform: seeed_xiao_rp2040
+            example: debugPWM
 
     steps:
       - name: Checkout repository
@@ -68,8 +70,34 @@ jobs:
       - name: Upload firmware as artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.platform }}-${{ matrix.example }}-firmware
-          path: ${{ steps.rename.outputs.firmware_glob }}
+          name: firmware-${{ matrix.platform }}-${{ matrix.example }}
+          path: |
+            ${{ steps.rename.outputs.firmware_glob }}
+            .pio/build/${{ matrix.platform }}/firmware.elf
+
+  simulate:
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download firmware artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: firmware-seeed_xiao_rp2040-debugPWM
+          path: .pio/build/seeed_xiao_rp2040
+
+      - name: Install Renode
+        run: |
+          wget https://github.com/renode/renode/releases/download/v1.15.0/renode-1.15.0.linux-portable.tar.gz
+          mkdir renode_portable
+          tar -xzf renode-1.15.0.linux-portable.tar.gz -C renode_portable --strip-components=1
+          chmod +x renode_portable/renode
+
+      - name: Run Renode Simulation
+        run: ./renode_portable/renode --disable-xwt -e 'i @test/Sim/rp2040_debugPWM.resc'
 
   release:
     runs-on: ubuntu-latest
