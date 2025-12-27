@@ -32,14 +32,14 @@ void setup() {
 
   // 3. Initialize the timer-based BEMF measurement mode
   //    - Callback: bemf_callback
-  //    - Delay: 1500us (default)
-  //    - Samples: 3 (default)
-  hal_motor_init_bemf_timer_adc(bemf_callback);
+  //    - Delay: 1500us
+  //    - Samples: 3
+  hal_motor_init_bemf_timer_adc(bemf_callback, 1500, 3);
 
-  // 4. Start the motor at 50% duty cycle
+  // 4. Start the motor at 30% duty cycle
   // Duty cycle (0-255), forward (true/false)
-  hal_motor_set_duty(128, true);
-  Serial.println("Motor started at 50% duty cycle.");
+  hal_motor_set_duty(77, true);
+  Serial.println("Motor started at 30% duty cycle.");
 }
 
 void loop() {
