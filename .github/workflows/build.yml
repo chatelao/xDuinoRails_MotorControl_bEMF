@@ -92,11 +92,12 @@ jobs:
       - name: Install Renode
         run: |
           wget https://github.com/renode/renode/releases/download/v1.15.0/renode-1.15.0.linux-portable.tar.gz
-          tar -xzf renode-1.15.0.linux-portable.tar.gz
-          chmod +x renode-1.15.0.linux-portable/renode
+          mkdir renode_portable
+          tar -xzf renode-1.15.0.linux-portable.tar.gz -C renode_portable --strip-components=1
+          chmod +x renode_portable/renode
 
       - name: Run Renode Simulation
-        run: ./renode-1.15.0.linux-portable/renode --disable-xwt -e 'i @test/Sim/rp2040_debugPWM.resc'
+        run: ./renode_portable/renode --disable-xwt -e 'i @test/Sim/rp2040_debugPWM.resc'
 
   release:
     runs-on: ubuntu-latest
