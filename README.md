@@ -128,6 +128,15 @@ Initializes the ADC for BEMF sensing.
 
 Initializes the DMA for BEMF sensing.
 
+### `void hal_motor_init_bemf_timer_adc(hal_bemf_update_callback_t callback, uint32_t measurement_delay_us = 1500, uint8_t samples_to_take = 3, uint8_t motor_id = 0)`
+
+Initializes BEMF sensing using a hardware timer to trigger ADC measurements. This method is useful when you need to precisely time the BEMF measurement relative to the PWM signal, for example, to avoid measurement during periods of high noise.
+
+-   `callback`: The function to be called with new BEMF data.
+-   `measurement_delay_us`: The delay in microseconds after the PWM cutout before starting the ADC measurements.
+-   `samples_to_take`: The number of ADC samples to take per cutout.
+-   `motor_id`: The index of the motor to control.
+
 ### `void hal_motor_set_duty(int duty_cycle, bool forward, uint8_t motor_id = 0)`
 
 Sets the motor's PWM duty cycle and direction. This function updates the PWM hardware with the new duty cycle. It should be called periodically from the main application loop to reflect the latest output from the motor control algorithm (e.g., a PI controller).
