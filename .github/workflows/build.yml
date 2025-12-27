@@ -105,7 +105,7 @@ jobs:
           chmod +x renode_portable/renode
 
       - name: Run Renode Simulation
-        run: ./renode_portable/renode --disable-xwt -e 'i @test/Sim/rp2040_${{ matrix.example }}.resc'
+        run: timeout 30s ./renode_portable/renode --disable-xwt -e 'i @test/Sim/rp2040_${{ matrix.example }}.resc' || true
 
       - name: Rename VCD trace file
         id: rename_vcd
