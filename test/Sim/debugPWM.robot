@@ -10,6 +10,7 @@ ${FIRMWARE_ELF_PATH}    ../../.pio/build/seeed_xiao_rp2040/firmware.elf
 *** Test Cases ***
 Should Toggle Pulse Pin
     [Documentation]    Runs the simulation and checks if the pulse pin is toggled.
+    [Timeout]    10s
     ${machine}=    Get Machine Id
     Load ELF    ${machine}    ${FIRMWARE_ELF_PATH}
     Start Emulation

@@ -2,3 +2,4 @@
 rust/target/
 rust/output/
 site/
+renode_portable/
