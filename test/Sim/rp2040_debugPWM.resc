@@ -19,6 +19,10 @@ machine LoadPlatformDescription @platforms/cpus/raspberry_pi_rp2040.repl
 # that the PWM interrupt is firing correctly.
 sysbus.gpio.gpio LogGPIOAccess true
 
+# Enable VCD dumping for all GPIO pins. This will create a waveform trace file
+# that can be analyzed with a tool like GTKWave.
+sysbus.gpio.gpio DumpVcd "simulation.vcd"
+
 # Load and execute the Robot Framework test suite. This script will control the
 # simulation, check for specific log messages, and determine if the test passes.
 script @"${CURDIR}/debugPWM.robot"
