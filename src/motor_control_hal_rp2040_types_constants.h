@@ -38,12 +38,17 @@ struct AlarmUserData {
 typedef enum {
     BEMF_MODE_NONE,
     BEMF_MODE_DMA,
-    BEMF_MODE_IRQ
+    BEMF_MODE_IRQ,
+    BEMF_MODE_TIMER_ADC
 } BEMFMode;
 
 struct MotorContext {
     bool     is_initialized;
     BEMFMode bemf_mode;
+    uint32_t bemf_measurement_delay_us;
+    uint8_t  bemf_samples_to_take;
+    uint8_t  bemf_samples_taken;
+    int      alarm_id;
     bool     skip_measurement;
     uint8_t  pwm_a_pin;
     uint8_t  pwm_b_pin;
