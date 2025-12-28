@@ -107,18 +107,18 @@ jobs:
       - name: Run Renode Simulation
         run: timeout 30s ./renode_portable/renode --disable-xwt -e 'i @test/Sim/rp2040_${{ matrix.example }}.resc' || true
 
-      - name: Rename VCD trace file
-        id: rename_vcd
-        run: |
-          VCD_FILENAME="trace-${{ matrix.platform }}-${{ matrix.example }}.vcd"
-          mv simulation.vcd "${VCD_FILENAME}"
-          echo "vcd_filename=${VCD_FILENAME}" >> $GITHUB_OUTPUT
+#      - name: Rename VCD trace file
+#        id: rename_vcd
+#        run: |
+#          VCD_FILENAME="trace-${{ matrix.platform }}-${{ matrix.example }}.vcd"
+#          mv simulation.vcd "${VCD_FILENAME}"
+#          echo "vcd_filename=${VCD_FILENAME}" >> $GITHUB_OUTPUT
 
-      - name: Upload VCD trace as artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: vcd-trace-${{ matrix.platform }}-${{ matrix.example }}
-          path: ${{ steps.rename_vcd.outputs.vcd_filename }}
+#      - name: Upload VCD trace as artifact
+#        uses: actions/upload-artifact@v4
+#        with:
+#          name: vcd-trace-${{ matrix.platform }}-${{ matrix.example }}
+#          path: ${{ steps.rename_vcd.outputs.vcd_filename }}
 
   release:
     runs-on: ubuntu-latest
