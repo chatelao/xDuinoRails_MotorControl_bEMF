@@ -1,0 +1,23 @@
+@startuml
+title "State Diagram for BEMF_MODE_TIMER_ADC"
+
+scale 1200 width
+
+state Idle
+state WaitingForTimer
+state Measuring
+state Processing
+
+[*] --> Idle
+
+Idle --> WaitingForTimer : on_pwm_wrap() IRQ\n- Schedule alarm
+
+WaitingForTimer --> Measuring : delayed_adc_trigger_callback()\n- Trigger first ADC sample
+
+Measuring --> Measuring : adc_irq_handler()\n- More samples to take\n- Trigger next ADC sample
+
+Measuring --> Processing : adc_irq_handler()\n- All samples taken
+
+Processing --> Idle : - Calculate average\n- Invoke user callback\n- Release ADC lock
+
+@enduml

@@ -1,6 +1,6 @@
 @startuml class_diagram
 
-'!theme vibrant
+''!theme vibrant
 
 title Structural Diagram - Motor Control HAL
 
@@ -25,7 +25,12 @@ package "src/motor_control_hal_rp2040_types_constants.h" {
     + next_duty_level_a: uint16_t
     + next_duty_level_b: uint16_t
     + pwm_frequency: uint32_t
-    -- DMA & ADC --
+    -- BEMF --
+    + bemf_mode: BEMFMode
+    + bemf_measurement_delay_us: uint32_t
+    + bemf_samples_to_take: uint8_t
+    + bemf_samples_taken: uint8_t
+    + alarm_id: int
     + dma_channel_bemf: int
     + bemf_ring_buffer: volatile uint16_t[]
     + bemf_callback: hal_bemf_update_callback_t
@@ -36,7 +41,15 @@ package "src/motor_control_hal_rp2040_types_constants.h" {
     + ctx: MotorContext*
   }
 
+  enum BEMFMode {
+    BEMF_MODE_NONE
+    BEMF_MODE_DMA
+    BEMF_MODE_IRQ
+    BEMF_MODE_TIMER_ADC
+  }
+
   MotorContext *-- AlarmUserData
+  MotorContext *-- BEMFMode
 }
 
 package "src/motor_control_hal.h" {
@@ -44,6 +57,7 @@ package "src/motor_control_hal.h" {
     + hal_motor_init_pwm(...)
     + hal_motor_init_bemf_adc(...)
     + hal_motor_init_bemf_dma(...)
+    + hal_motor_init_bemf_timer_adc(...)
     + hal_motor_set_duty(...)
     + hal_motor_get_bemf_buffer(...)
     + hal_motor_check_solenoid_position(...)
@@ -84,9 +98,18 @@ package "src/motor_control_hal_rp2040_dma.cpp.inc" {
     }
 }
 
+package "src/motor_control_hal_rp2040_timer_adc.cpp.inc" {
+    class timer_adc_impl as "timer_adc.cpp.inc" {
+        + hal_motor_init_bemf_timer_adc(...)
+        - delayed_adc_trigger_callback()
+    }
+}
+timer_adc_impl --> MotorContext : (modifies)
+
 package "src/motor_control_hal_rp2040_irq.cpp.inc" {
     class irq_impl as "irq.cpp.inc" {
-        - dma_irq_handler()
+        - on_pwm_wrap()
+        - adc_irq_handler()
     }
 }
 
@@ -105,10 +128,5 @@ dma_impl --> MotorContext : (modifies)
 irq_impl --> MotorContext : (modifies)
 diag_impl --> MotorContext : (modifies)
 
-
-note on link of PublicAPI
-  Operates on an instance of
-  g_motors[motor_id]
-end note
 
 @enduml
