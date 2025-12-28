@@ -1,6 +1,6 @@
 @startuml component_diagram
 
-'!theme vibrant
+''!theme vibrant
 
 title Component Diagram - xDuinoRails_MotorControl_bEMF
 
@@ -46,6 +46,14 @@ note left of RP2040_IMPL
   interact with the hardware.
   It manages the MotorContext
   data structure.
+
+  It implements a state machine
+  for the timer-based ADC BEMF
+  measurement. See the state
+  diagram for details.
 end note
+
+[State Machine] as SM
+RP2040_IMPL ..> SM
 
 @enduml
