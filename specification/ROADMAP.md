@@ -14,6 +14,15 @@ This document outlines the status of supported platforms, planned features, and 
 
 ## Planned Platforms
 
+### Seeed XIAO STM32C0
+
+- [x] Research hardware specifications and pinout.
+- [x] Add documentation for the Seeed Studio XIAO STM32C0.
+- [ ] Implement the Hardware Abstraction Layer (HAL) for the STM32C0.
+- [ ] Add a new PlatformIO environment for the `seeed_xiao_stm32c0` board.
+- [ ] Verify that all examples compile successfully for the new platform.
+- [ ] Perform on-hardware testing and validation.
+
 ### Seeed XIAO RP2350
 
 - [ ] Research PlatformIO support for the RP2350.

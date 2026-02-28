@@ -9,6 +9,7 @@ nav:
   - 'How To Use': 'HOW_TO_USE.en.md'
   - 'Supported Hardware':
     - 'Seeed Studio XIAO RP2040': 'SEEED_XIAO_RP2040.en.md'
+    - 'Seeed Studio XIAO STM32C0': 'SEEED_XIAO_STM32C0.en.md'
     - 'Motor Driver ICs': 'MOTOR_DRIVER_ICS.en.md'
   - 'Specifications':
     - 'Core Concepts': 'specification/CORE_CONCEPTS.en.md'
